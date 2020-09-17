@@ -18,7 +18,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowIcon(QtGui.QIcon(os.path.join(config.paths['icons'], 'coffee.png')))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(config.paths['icons'], 'lambda_iv.png')))
         self.setWindowTitle("%s %s" % (config.global_confs['progname'], config.global_confs['progversion']))
 
         self.table_widget = TableWidget(self)  # create multiple document interface widget

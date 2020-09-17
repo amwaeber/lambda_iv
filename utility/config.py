@@ -7,7 +7,7 @@ from utility.save_info import info_defaults
 
 PROJECT_PATH = os.path.dirname(os.path.dirname(__file__))
 
-global_confs = {'progname': 'ItMakesCoffee',
+global_confs = {'progname': 'Lambda IV',
                 'progversion': __version__}
 
 defaults = {'info': info_defaults[1:],
