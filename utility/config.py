@@ -2,7 +2,7 @@ import datetime
 import os
 from configparser import ConfigParser
 
-from utility._version import __version__
+from utility.version import __version__
 from utility.save_info import info_defaults
 
 PROJECT_PATH = os.path.dirname(os.path.dirname(__file__))

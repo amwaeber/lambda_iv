@@ -2,16 +2,18 @@ import ctypes
 import os
 from PyQt5 import QtWidgets, QtGui
 
-from user_interfaces.table_widget import TableWidget
+from user_interfaces.main_widget import MainWidget
 from utility import config
+from utility.version import __version__
 
 
+# noinspection PyAttributeOutsideInit
 class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
-        myappid = 'ItMakesCoffee'  # arbitrary string
+        myappid = 'Lambda IV'  # arbitrary string
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
         config.read_config()
@@ -19,10 +21,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def init_ui(self):
         self.setWindowIcon(QtGui.QIcon(os.path.join(config.paths['icons'], 'lambda_iv.png')))
-        self.setWindowTitle("%s %s" % (config.global_confs['progname'], config.global_confs['progversion']))
+        self.setWindowTitle("%s %s" % (config.global_confs['progname'], __version__))
 
-        self.table_widget = TableWidget(self)  # create multiple document interface widget
-        self.setCentralWidget(self.table_widget)
+        self.main_widget = MainWidget(self)
+        self.setCentralWidget(self.main_widget)
         self.showMaximized()
 
     def closeEvent(self, *args, **kwargs):

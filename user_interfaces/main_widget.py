@@ -15,10 +15,10 @@ pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 
 
-class Experiment(QtWidgets.QWidget):
+class MainWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
-        super(Experiment, self).__init__(parent)
+        super(MainWidget, self).__init__(parent)
         self.directory = paths['last_save']
         self.data_iv = np.zeros((5, 1))
         self.info_data = [['.']] + defaults['info']
