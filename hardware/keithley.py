@@ -17,7 +17,8 @@ class Keithley(QtCore.QObject):
     end_of_experiment = QtCore.pyqtSignal()
 
     def __init__(self, gpib_port='GPIB::24', n_data_points=100, averages=5, repetitions=1, repetition_delay=2.0,
-                 delay=0.25, experiment_delay=1.0, min_voltage=-0.01, max_voltage=0.7, compliance_current=0.5):
+                 delay=0.25, experiment_delay=1.0, min_voltage=-0.01, max_voltage=0.7, compliance_current=0.5,
+                 voltage_protection=20, remote_sense=False, use_rear_terminals=False):
         super(Keithley, self).__init__()
         self.gpib_port = gpib_port
         self.n_data_points = n_data_points
@@ -29,6 +30,9 @@ class Keithley(QtCore.QObject):
         self.max_voltage = max_voltage
         self.min_voltage = min_voltage
         self.compliance_current = compliance_current
+        self.voltage_protection = voltage_protection
+        self.remote_sense = remote_sense
+        self.use_rear_terminals = use_rear_terminals
         self.voltages_set = np.linspace(self.min_voltage, self.max_voltage, num=self.n_data_points)
         self.times = np.zeros_like(self.voltages_set)
         self.voltages = np.zeros_like(self.voltages_set)
@@ -55,12 +59,17 @@ class Keithley(QtCore.QObject):
             self.gpib_port = 'dummy'
             return
         self.sourcemeter.reset()
-        # self.sourcemeter.use_front_terminals()
-        self.sourcemeter.use_rear_terminals()
+        if self.use_rear_terminals:
+            self.sourcemeter.use_rear_terminals()
+        else:
+            self.sourcemeter.use_front_terminals()
         self.sourcemeter.compliance_current = kwargs.get('compliance_current', self.compliance_current)
         self.sourcemeter.measure_current()
-        self.sourcemeter.adapter.write(":SOUR:VOLT:PROT 20;")
-        self.sourcemeter.adapter.write(":SYST:RSEN ON;")
+        self.sourcemeter.adapter.write(":SOUR:VOLT:PROT %s;" % self.voltage_protection)
+        if self.remote_sense:
+            self.sourcemeter.adapter.write(":SYST:RSEN ON;")
+        else:
+            self.sourcemeter.adapter.write(":SYST:RSEN OFF;")
         time.sleep(0.1)  # wait here to give the instrument time to react
         self.averages = kwargs.get('averages', self.averages)
         self.sourcemeter.config_buffer(self.averages)

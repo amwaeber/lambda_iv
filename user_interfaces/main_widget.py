@@ -6,12 +6,10 @@ import pyqtgraph as pg
 
 import hardware.keithley as keithley
 import hardware.sensor as sensor
+from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
-from user_interfaces.widgets.separator import Separator
-from user_interfaces.widgets.switch_button import Switch
-from utility import serial_ports
 import utility.colors as colors
-from utility.config import defaults, paths, ports, write_config
+from utility.config import defaults, paths
 from utility.save_info import save_info
 
 pg.setConfigOption('background', 'w')
@@ -22,11 +20,9 @@ class MainWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
-        self.directory = paths['last_save']
         self.data_iv = np.zeros((5, 1))
         self.info_data = [['.']] + defaults['info']  # update as references to info_tab
         self.exp_count = 0
-        self.block_sensor = False
 
         vbox_total = QtWidgets.QVBoxLayout()
         hbox_top = QtWidgets.QHBoxLayout()
@@ -47,145 +43,13 @@ class MainWidget(QtWidgets.QWidget):
         self.tabs.setTabShape(QtWidgets.QTabWidget.Triangular)
         self.tabs.setTabPosition(QtWidgets.QTabWidget.South)
 
-        iv_col = QtWidgets.QWidget()
-        vbox_cell = QtWidgets.QVBoxLayout()
-        vbox_cell.addWidget(QtWidgets.QLabel("Parameters", self))
-        grid_source = QtWidgets.QGridLayout()
-        grid_source.addWidget(QtWidgets.QLabel("Start (V)", self), 0, 0)
-        self.start_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][0], self)
-        self.start_edit.setFixedWidth(60)
-        self.start_edit.textChanged.connect(self.update_steps)
-        grid_source.addWidget(self.start_edit, 0, 1)
-        grid_source.addWidget(QtWidgets.QLabel("End (V)", self), 1, 0)
-        self.end_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][1], self)
-        self.end_edit.setFixedWidth(60)
-        self.end_edit.textChanged.connect(self.update_steps)
-        grid_source.addWidget(self.end_edit, 1, 1)
-        grid_source.addWidget(QtWidgets.QLabel("Step (V)", self), 0, 2)
-        self.step_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][2], self)
-        self.step_edit.setFixedWidth(60)
-        self.step_edit.setDisabled(True)
-        grid_source.addWidget(self.step_edit, 0, 3)
-        grid_source.addWidget(QtWidgets.QLabel("# Steps", self), 1, 2)
-        self.nstep_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][3], self)
-        self.nstep_edit.setFixedWidth(60)
-        self.nstep_edit.textChanged.connect(self.update_steps)
-        grid_source.addWidget(self.nstep_edit, 1, 3)
-        grid_source.addWidget(QtWidgets.QLabel("I Limit (A)", self), 0, 4)
-        self.ilimit_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][4], self)
-        self.ilimit_edit.setFixedWidth(60)
-        grid_source.addWidget(self.ilimit_edit, 0, 5)
-
-        grid_source.addWidget(QtWidgets.QLabel("Averages", self), 2, 0)
-        self.naverage_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][5], self)  # adjust to update with NSteps
-        self.naverage_edit.setFixedWidth(60)
-        grid_source.addWidget(self.naverage_edit, 2, 1)
-        grid_source.addWidget(QtWidgets.QLabel("Delay (s)", self), 3, 0)
-        self.delay_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][6], self)
-        self.delay_edit.setFixedWidth(60)
-        grid_source.addWidget(self.delay_edit, 3, 1)
-        grid_source.addWidget(QtWidgets.QLabel("Traces", self), 2, 2)
-        self.reps_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][7], self)
-        self.reps_edit.setFixedWidth(60)
-        grid_source.addWidget(self.reps_edit, 2, 3)
-        grid_source.addWidget(QtWidgets.QLabel("Tr. Delay (s)", self), 3, 2)
-        self.rep_delay_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][8], self)
-        self.rep_delay_edit.setFixedWidth(60)
-        grid_source.addWidget(self.rep_delay_edit, 3, 3)
-        grid_source.addWidget(QtWidgets.QLabel("Experiments", self), 2, 4)
-        self.exps_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][9], self)
-        self.exps_edit.setFixedWidth(60)
-        grid_source.addWidget(self.exps_edit, 2, 5)
-        grid_source.addWidget(QtWidgets.QLabel("Exp. Delay (min)", self), 3, 4)
-        self.exp_delay_edit = QtWidgets.QLineEdit('%s' % defaults['iv'][10], self)
-        self.exp_delay_edit.setFixedWidth(60)
-        grid_source.addWidget(self.exp_delay_edit, 3, 5)
-        vbox_cell.addLayout(grid_source)
-
-        vbox_cell.addWidget(Separator())
-        vbox_cell.addWidget(QtWidgets.QLabel("Ports", self))
-        hbox_ports = QtWidgets.QHBoxLayout()
-        hbox_ports.addWidget(QtWidgets.QLabel("Arduino", self))  # TODO: Move to sensor tab
-        self.sensor_cb = QtWidgets.QComboBox()
-        self.sensor_cb.setFixedWidth(90)
-        self.sensor_cb.addItem('dummy')
-        for port in serial_ports.get_serial_ports():
-            self.sensor_cb.addItem(port)
-            if port == ports['arduino']:
-                self.sensor_cb.setCurrentText(port)
-        self.sensor_cb.currentTextChanged.connect(self.sensor_port_changed)
-        hbox_ports.addWidget(self.sensor_cb)
-        hbox_ports.addWidget(QtWidgets.QLabel("Keithley", self))
-        self.source_cb = QtWidgets.QComboBox()
-        self.source_cb.setFixedWidth(90)
-        self.source_cb.addItem('dummy')
-        self.source_cb.addItem('GPIB::24')
-        for i in range(self.source_cb.count()):
-            if self.source_cb.itemText(i) == ports['keithley']:
-                self.source_cb.setCurrentIndex(i)
-        hbox_ports.addWidget(self.source_cb)
-        hbox_ports.addStretch(-1)
-        self.refresh_button = QtWidgets.QPushButton(
-            QtGui.QIcon(os.path.join(paths['icons'], 'refresh.png')), '')
-        self.refresh_button.clicked.connect(self.update_ports)
-        self.refresh_button.setToolTip('Update Ports')
-        hbox_ports.addWidget(self.refresh_button)
-        vbox_cell.addLayout(hbox_ports)
-
-        vbox_cell.addWidget(Separator())
-        vbox_cell.addWidget(QtWidgets.QLabel("Save", self))
-        hbox_folder = QtWidgets.QHBoxLayout()
-        self.folder_button = QtWidgets.QPushButton(
-            QtGui.QIcon(os.path.join(paths['icons'], 'folder.png')), '')
-        self.folder_button.clicked.connect(self.folder_dialog)
-        self.folder_button.setToolTip('Choose folder')
-        hbox_folder.addWidget(self.folder_button)
-        self.folder_edit = QtWidgets.QLineEdit(self.directory, self)
-        self.folder_edit.setMinimumWidth(180)
-        self.folder_edit.setDisabled(True)
-        hbox_folder.addWidget(self.folder_edit)
-        self.clipboard_button = QtWidgets.QPushButton(
-            QtGui.QIcon(os.path.join(paths['icons'], 'clipboard.png')), '')
-        self.clipboard_button.clicked.connect(lambda: self.clipboard('iv'))
-        self.clipboard_button.setToolTip('Save plot to clipboard')
-        hbox_folder.addWidget(self.clipboard_button)
-        vbox_cell.addLayout(hbox_folder)
-
-        vbox_cell.addWidget(Separator())
-        vbox_cell.addWidget(QtWidgets.QLabel("Readout", self))
-        hbox_readout = QtWidgets.QHBoxLayout()
-        hbox_readout.addWidget(QtWidgets.QLabel("Voltage (mV)", self))
-        self.read_volt_edit = QtWidgets.QLineEdit('-1', self)
-        self.read_volt_edit.setFixedWidth(60)
-        self.read_volt_edit.setDisabled(True)
-        hbox_readout.addWidget(self.read_volt_edit)
-        hbox_readout.addWidget(QtWidgets.QLabel("Current (mA)", self))
-        self.read_curr_edit = QtWidgets.QLineEdit('-1', self)
-        self.read_curr_edit.setFixedWidth(60)
-        self.read_curr_edit.setDisabled(True)
-        hbox_readout.addWidget(self.read_curr_edit)
-        hbox_readout.addStretch(-1)
-        vbox_cell.addLayout(hbox_readout)
-
-        vbox_cell.addWidget(Separator())
-        vbox_cell.addWidget(QtWidgets.QLabel("Measure", self))
-        hbox_measure = QtWidgets.QHBoxLayout()
-        start_icon = QtGui.QIcon()
-        start_icon.addPixmap(QtGui.QPixmap(os.path.join(paths['icons'], 'iv_off.png')),
-                             QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        start_icon.addPixmap(QtGui.QPixmap(os.path.join(paths['icons'], 'iv_on.png')),
-                             QtGui.QIcon.Normal, QtGui.QIcon.On)
-        self.start_button = QtWidgets.QPushButton(QtGui.QIcon(start_icon), '')
-        self.start_button.setIconSize(QtCore.QSize(48, 48))
-        self.start_button.setCheckable(True)
-        self.start_button.clicked.connect(self.start)
-        self.start_button.setToolTip('Start IV')
-        hbox_measure.addWidget(self.start_button)
-        hbox_measure.addStretch(-1)
-        vbox_cell.addLayout(hbox_measure)
-        vbox_cell.addStretch(-1)
-        iv_col.setLayout(vbox_cell)
-        self.tabs.addTab(iv_col, 'PV Cell')
+        self.cell_tab = CellWidget(self)
+        self.cell_tab.start_sensor.connect(self.start_sensor)
+        self.cell_tab.stop_sensor.connect(self.stop_sensor)
+        self.cell_tab.clipboard_button.clicked.connect(lambda: self.clipboard('iv'))
+        self.cell_tab.start_button.clicked.connect(self.start)
+        self.cell_tab.to_log.connect(self.logger)
+        self.tabs.addTab(self.cell_tab, 'PV Cell')
 
         sensor_col = QtWidgets.QWidget()
         vbox_sensor_col = QtWidgets.QVBoxLayout()
@@ -329,8 +193,8 @@ class MainWidget(QtWidgets.QWidget):
         sensor_col.setLayout(vbox_sensor_col)
         self.tabs.addTab(sensor_col, 'Sensors')
 
-        info_tab = InfoWidget(self)
-        self.tabs.addTab(info_tab, 'Info')
+        self.info_tab = InfoWidget(self)
+        self.tabs.addTab(self.info_tab, 'Info')
 
         hbox_top.addWidget(self.tabs, 3)
         vbox_total.addLayout(hbox_top, 4)
@@ -365,7 +229,7 @@ class MainWidget(QtWidgets.QWidget):
         vbox_total.addLayout(hbox_bottom, 2)
         self.setLayout(vbox_total)
 
-        self.data_sensor = np.zeros((int(self.ais_edit.text()), int(self.nstep_edit.text())))
+        self.data_sensor = np.zeros((int(self.ais_edit.text()), int(self.cell_tab.nstep_edit.text())))
         self.sensor_time_data = None
         self.sensor_time_data_averaged = None
         self.sensor_time_max = None
@@ -436,10 +300,11 @@ class MainWidget(QtWidgets.QWidget):
                 self.power_data_line3.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[4])
                 self.power_data_line4.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[5])
 
+    @QtCore.pyqtSlot()
     def start_sensor(self):
         if self.sensor_mes:
             self.sensor_mes.stop()
-        self.sensor_mes = sensor.ArduinoSensor(port=str(self.sensor_cb.currentText()),
+        self.sensor_mes = sensor.ArduinoSensor(port=str(self.cell_tab.sensor_cb.currentText()),
                                                baud=int(self.baud_edit.text()),
                                                n_data_points=int(self.datapoints_edit.text()),
                                                data_num_bytes=int(self.databytes_edit.text()),
@@ -449,6 +314,7 @@ class MainWidget(QtWidgets.QWidget):
         self.sensor_register(self.sensor_mes)
         self.sensor_mes.start()
 
+    @QtCore.pyqtSlot()
     def stop_sensor(self):
         self.temp_button.setChecked(False)
         self.power_button.setChecked(False)
@@ -456,21 +322,6 @@ class MainWidget(QtWidgets.QWidget):
         if self.sensor_mes:
             self.sensor_mes.stop()
             self.sensor_mes = None
-
-    def sensor_port_changed(self):
-        if self.block_sensor is False:  # if combobox update is in progress, sensor_port_changed is not triggered
-            self.stop_sensor()
-            self.start_sensor()
-
-    def update_ports(self):
-        self.stop_sensor()
-        self.block_sensor = True
-        self.sensor_cb.clear()
-        self.sensor_cb.addItem('dummy')
-        for port in serial_ports.get_serial_ports():
-            self.sensor_cb.addItem(port)
-        self.block_sensor = False
-        self.start_sensor()
 
     def sensor_mode_changed(self):
         self.stop_sensor()
@@ -509,10 +360,6 @@ class MainWidget(QtWidgets.QWidget):
             self.power_data_line3.setData([], [])
             self.power_data_line4.setData([], [])
 
-    def folder_dialog(self):
-        self.directory = str(QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Directory', self.directory))
-        self.folder_edit.setText(self.directory)
-
     def iv_register(self, mes):
         self.iv_mes = mes
         self.iv_mes.update.connect(self.update_iv)
@@ -524,7 +371,7 @@ class MainWidget(QtWidgets.QWidget):
 
     def start(self):
         # Stop measurement if measurement is running
-        if not self.start_button.isChecked():
+        if not self.cell_tab.start_button.isChecked():
             self.stop()
             return
         # Do not start measurement if sensor plot with fixed time is active
@@ -532,36 +379,41 @@ class MainWidget(QtWidgets.QWidget):
                 and str(self.sensor_plot_cb.currentText()) == 'Fixed Time':
             self.logger('<span style=\" color:#ff0000;\" >Fixed time sensor scan is running. '
                         'Stop current sensor experiment first.</span>')
-            self.start_button.setChecked(False)
+            self.cell_tab.start_button.setChecked(False)
             return
         # Do not start measurement if faulty parameters are set
-        elif self.check_iv_parameters() is False:
-            self.start_button.setChecked(False)
+        elif self.cell_tab.check_iv_parameters() is False:
+            self.cell_tab.start_button.setChecked(False)
             return
+        self.cell_tab.start_button.setText("Stop IV")
         if self.iv_mes:
             self.iv_mes.close()
-        experiment_delay = 1 if self.exp_count == 0 else float(self.exp_delay_edit.text()) * 60
-        self.iv_mes = keithley.Keithley(gpib_port=str(self.source_cb.currentText()),
-                                        n_data_points=int(self.nstep_edit.text()),
-                                        averages=int(self.naverage_edit.text()),
-                                        repetitions=int(self.reps_edit.text()),
-                                        repetition_delay=float(self.rep_delay_edit.text()),
-                                        delay=float(self.delay_edit.text()),
+        experiment_delay = 1 if self.exp_count == 0 else float(self.cell_tab.exp_delay_edit.text()) * 60
+        self.iv_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
+                                        n_data_points=int(self.cell_tab.nstep_edit.text()),
+                                        averages=int(self.cell_tab.naverage_edit.text()),
+                                        repetitions=int(self.cell_tab.reps_edit.text()),
+                                        repetition_delay=float(self.cell_tab.rep_delay_edit.text()),
+                                        delay=float(self.cell_tab.delay_edit.text()),
                                         experiment_delay=experiment_delay,
-                                        min_voltage=float(self.start_edit.text()),
-                                        max_voltage=float(self.end_edit.text()),
-                                        compliance_current=float(self.ilimit_edit.text()))
+                                        min_voltage=float(self.cell_tab.start_edit.text()),
+                                        max_voltage=float(self.cell_tab.end_edit.text()),
+                                        compliance_current=float(self.cell_tab.ilimit_edit.text()),
+                                        voltage_protection=int(self.cell_tab.vprot_edit.text()),
+                                        remote_sense=self.cell_tab.remote_sense_btn.isChecked(),
+                                        use_rear_terminals=self.cell_tab.rear_terminal_btn.isChecked()
+                                        )
         self.iv_register(self.iv_mes)
-        self.data_sensor = np.zeros((int(self.ais_edit.text()), int(self.nstep_edit.text())))
+        self.data_sensor = np.zeros((int(self.ais_edit.text()), int(self.cell_tab.nstep_edit.text())))
         self.check_save_path()
-        if self.exp_count == 0 and int(self.exps_edit.text()) > 1:  # count file names from ' 0' if multiple
-            os.rmdir(self.directory)
-            self.directory += ' 0'
+        if self.exp_count == 0 and int(self.cell_tab.exps_edit.text()) > 1:  # count file names from ' 0' if multiple
+            os.rmdir(self.cell_tab.save_dir)
+            self.cell_tab.save_dir += ' 0'
             self.info_data[1][0] += ' 0'
-            self.folder_edit.setText(self.directory)
-            if not os.path.exists(self.directory):
-                os.makedirs(self.directory)
-        self.info_data[0][0] = self.directory
+            self.folder_edit.setText(self.cell_tab.save_dir)
+            if not os.path.exists(self.cell_tab.save_dir):
+                os.makedirs(self.cell_tab.save_dir)
+        self.info_data[0][0] = self.cell_tab.save_dir
         self.iv_mes.read_keithley_start()
         self.exp_count += 1
 
@@ -573,31 +425,33 @@ class MainWidget(QtWidgets.QWidget):
             _, sensor_latest = self.sensor_mes.get_sensor_latest()
             for ai, val in enumerate(sensor_latest):
                 self.data_sensor[ai, datapoint] = val
-            self.read_volt_edit.setText("%0.1f" % (1e3*self.iv_mes.voltages_set[datapoint]))
-            self.read_curr_edit.setText("%0.2f" % (1e3*self.iv_mes.currents[datapoint]))
+            self.cell_tab.read_volt_edit.setText("%0.1f" % (1e3*self.iv_mes.voltages_set[datapoint]))
+            self.cell_tab.read_curr_edit.setText("%0.2f" % (1e3*self.iv_mes.currents[datapoint]))
         self.iv_mes.line_plot(self.iv_data_line)
 
     def stop(self):
         if self.iv_mes:
             self.iv_mes.close()
-        self.start_button.setChecked(False)
+        self.cell_tab.start_button.setChecked(False)
+        self.cell_tab.start_button.setText("Start IV")
 
     @QtCore.pyqtSlot()
     def experiment_loop(self):
-        if self.exp_count < int(self.exps_edit.text()):
-            self.directory = self.directory[:-(len(str(self.exp_count - 1)) + 1)]
-            self.directory += ' %d' % self.exp_count
-            self.folder_edit.setText(self.directory)
+        if self.exp_count < int(self.cell_tab.exps_edit.text()):
+            self.cell_tab.save_dir = self.cell_tab.save_dir[:-(len(str(self.exp_count - 1)) + 1)]
+            self.cell_tab.save_dir += ' %d' % self.exp_count
+            self.folder_edit.setText(self.cell_tab.save_dir)
             self.info_data[1][0] = self.info_data[1][0][:-(len(str(self.exp_count - 1)) + 1)]
             self.info_data[1][0] += ' %d' % self.exp_count
-            if not os.path.exists(self.directory):
-                os.makedirs(self.directory)
+            if not os.path.exists(self.cell_tab.save_dir):
+                os.makedirs(self.cell_tab.save_dir)
             self.start_button.click()
             self.logger('<span style=\" color:#ff0000;\" >Next Experiment lined up in %s minutes.</span>' %
                         str(self.exp_delay_edit.text()))
         else:
             self.exp_count = 0
 
+    @QtCore.pyqtSlot(str)
     def clipboard(self, plot):
         if plot == 'iv':
             pixmap = QtWidgets.QWidget.grab(self.iv_graph)
@@ -615,9 +469,10 @@ class MainWidget(QtWidgets.QWidget):
         self.data_iv['Irradiance 2 (W/m2)'] = self.data_sensor[2]
         self.data_iv['Irradiance 3 (W/m2)'] = self.data_sensor[3]
         self.data_iv['Irradiance 4 (W/m2)'] = self.data_sensor[4]
-        self.data_iv.to_csv(os.path.join(self.directory, 'IV_Curve_%s.csv' % str(repetition)))
-        save_info(file_path=os.path.join(self.directory, 'IV_Curve_%s.dat' % str(repetition)), folder=self.info_data[0],
-                  experiment_name=self.info_data[1], experiment_date=self.info_data[2], film_id=self.info_data[3],
+        self.data_iv.to_csv(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(repetition)))
+        save_info(file_path=os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.dat' % str(repetition)),
+                  folder=self.info_data[0], experiment_name=self.info_data[1],
+                  experiment_date=self.info_data[2], film_id=self.info_data[3],
                   pv_cell_id=self.info_data[4], setup_location=self.info_data[5],
                   setup_calibrated=self.info_data[6], setup_suns=self.info_data[7],
                   pid_proportional_band=self.info_data[8], pid_integral=self.info_data[9],
@@ -631,22 +486,22 @@ class MainWidget(QtWidgets.QWidget):
     @QtCore.pyqtSlot()
     def save_configuration(self):
         now = datetime.datetime.now()
-        save_file = open(os.path.join(self.directory, 'Settings.txt'), 'w')
+        save_file = open(os.path.join(self.cell_tab.save_dir, 'Settings.txt'), 'w')
         save_file.write(now.strftime("%Y-%m-%d %H:%M:%S"))
         save_file.write("\n\nFilm Parameters\n")
         save_file.write("Thickness (mm): %s\n" % str(-1))
         save_file.write("Area (cm2: %s\n" % str(-1))
         save_file.write("\nIV Parameters\n")
-        save_file.write("Port: %s\n" % str(self.source_cb.currentText()))
-        save_file.write("Start Voltage (V): %s\n" % str(self.start_edit.text()))
-        save_file.write("End Voltage (V): %s\n" % str(self.end_edit.text()))
-        save_file.write("Voltage Step (V): %s\n" % str(self.step_edit.text()))
-        save_file.write("Number of Voltage Steps: %s\n" % str(self.nstep_edit.text()))
-        save_file.write("Current Limit (A): %s\n" % str(self.ilimit_edit.text()))
-        save_file.write("Averages per Datapoint: %s\n" % str(self.naverage_edit.text()))
-        save_file.write("Delay between Datapoints: %s\n" % str(self.delay_edit.text()))
-        save_file.write("Traces: %s\n" % str(self.reps_edit.text()))
-        save_file.write("Delay between Traces: %s\n" % str(self.rep_delay_edit.text()))
+        save_file.write("Port: %s\n" % str(self.cell_tab.source_cb.currentText()))
+        save_file.write("Start Voltage (V): %s\n" % str(self.cell_tab.start_edit.text()))
+        save_file.write("End Voltage (V): %s\n" % str(self.cell_tab.end_edit.text()))
+        save_file.write("Voltage Step (V): %s\n" % str(self.cell_tab.step_edit.text()))
+        save_file.write("Number of Voltage Steps: %s\n" % str(self.cell_tab.nstep_edit.text()))
+        save_file.write("Current Limit (A): %s\n" % str(self.cell_tab.ilimit_edit.text()))
+        save_file.write("Averages per Datapoint: %s\n" % str(self.cell_tab.naverage_edit.text()))
+        save_file.write("Delay between Datapoints: %s\n" % str(self.cell_tab.delay_edit.text()))
+        save_file.write("Traces: %s\n" % str(self.cell_tab.reps_edit.text()))
+        save_file.write("Delay between Traces: %s\n" % str(self.cell_tab.rep_delay_edit.text()))
         save_file.write("\nSensor Parameters\n")
         save_file.write("Port: %s\n" % str(self.sensor_cb.currentText()))
         save_file.write("Baud Rate: %s\n" % str(self.baud_edit.text()))
@@ -658,9 +513,9 @@ class MainWidget(QtWidgets.QWidget):
         save_file.close()
 
     def check_save_path(self):
-        if any([not os.path.exists(self.directory),
-                os.path.exists(os.path.join(self.directory, 'Settings.txt')),
-                os.path.exists(os.path.join(self.directory, 'IV_Curve_0.csv'))]):
+        if any([not os.path.exists(self.cell_tab.save_dir),
+                os.path.exists(os.path.join(self.cell_tab.save_dir, 'Settings.txt')),
+                os.path.exists(os.path.join(self.cell_tab.save_dir, 'IV_Curve_0.csv'))]):
             self.folder_dialog()
             self.check_save_path()
 
@@ -669,55 +524,6 @@ class MainWidget(QtWidgets.QWidget):
         timestring = '[' + datetime.datetime.now().strftime('%H:%M:%S') + '] '
         self.log_edit.append(timestring + string)
         self.log_edit.moveCursor(QtGui.QTextCursor.End)
-
-    @QtCore.pyqtSlot()
-    def update_steps(self):
-        try:  # capture empty cells, typos etc during data entry
-            steps = (float(self.end_edit.text()) - float(self.start_edit.text())) / float(self.nstep_edit.text())
-            self.step_edit.setText("%.3f" % steps)
-        except (ZeroDivisionError, ValueError):
-            pass
-
-    def check_iv_parameters(self):
-        try:
-            int(self.nstep_edit.text())
-            int(self.naverage_edit.text())
-            int(self.reps_edit.text())
-            int(self.exps_edit.text())
-            float(self.start_edit.text())
-            float(self.end_edit.text())
-            float(self.ilimit_edit.text())
-            float(self.delay_edit.text())
-            float(self.rep_delay_edit.text())
-            float(self.exp_delay_edit.text())
-        except (ZeroDivisionError, ValueError):
-            self.logger('<span style=\" color:#ff0000;\" >Some parameters are not in the right format. '
-                        'Please check before starting measurement.</span>')
-            return False
-        if any([float(self.end_edit.text()) > 0.75,
-                float(self.start_edit.text()) < -0.15,
-                float(self.start_edit.text()) > float(self.end_edit.text()),
-                float(self.delay_edit.text()) < 0.01,
-                float(self.rep_delay_edit.text()) < 0.5,
-                float(self.exp_delay_edit.text()) < 0.5,
-                float(self.ilimit_edit.text()) > 0.5,
-                float(self.ilimit_edit.text()) <= 0.,
-                int(self.naverage_edit.text()) < 1,
-                int(self.reps_edit.text()) < 1,
-                int(self.exps_edit.text()) < 1
-                ]):
-            self.logger('<span style=\" color:#ff0000;\" >Some parameters are out of bounds. '
-                        'Please check before starting measurement.</span>')
-            return False
-        self.save_defaults()
-        return True
-
-    def save_defaults(self):
-        defaults['iv'] = [self.start_edit.text(), self.end_edit.text(), self.step_edit.text(), self.nstep_edit.text(),
-                          self.ilimit_edit.text(), self.naverage_edit.text(), self.delay_edit.text(),
-                          self.reps_edit.text(), self.rep_delay_edit.text(), self.exps_edit.text(),
-                          self.exp_delay_edit.text()]
-        write_config()
 
     def check_sensor_parameters(self):
         try:

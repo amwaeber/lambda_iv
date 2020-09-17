@@ -34,6 +34,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.main_widget.stop_sensor()
 
         # Update config ini with current paths
-        config.write_config(save_path=str(self.main_widget.directory),
-                            arduino=str(self.main_widget.sensor_cb.currentText()),
-                            keithley=str(self.main_widget.source_cb.currentText()))
+        config.write_config(save_path=str(self.main_widget.cell_tab.save_dir),
+                            arduino=str(self.main_widget.cell_tab.sensor_cb.currentText()),
+                            keithley=str(self.main_widget.cell_tab.source_cb.currentText()))

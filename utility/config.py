@@ -11,7 +11,7 @@ global_confs = {'progname': 'Lambda IV',
                 'progversion': __version__}
 
 defaults = {'info': info_defaults[1:],
-            'iv': [-0.01, 0.7, 0.005, 142, 0.5, 5, 0.025, 5, 2.0, 1, 30.0]}
+            'iv': [-0.01, 0.7, 0.005, 142, 0.5, 20, 5, 0.025, 5, 2.0, 1, 30.0, False, False]}
 
 paths = {'icons': os.path.join(PROJECT_PATH, 'icons'),
          'last_save': PROJECT_PATH}
