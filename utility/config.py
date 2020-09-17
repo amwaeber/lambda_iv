@@ -14,10 +14,7 @@ defaults = {'info': info_defaults[1:],
             'iv': [-0.01, 0.7, 0.005, 142, 0.5, 5, 0.025, 5, 2.0, 1, 30.0]}
 
 paths = {'icons': os.path.join(PROJECT_PATH, 'icons'),
-         'last_save': PROJECT_PATH,
-         'last_plot_save': PROJECT_PATH,
-         'last_analysis': PROJECT_PATH,
-         'last_export': PROJECT_PATH}
+         'last_save': PROJECT_PATH}
 
 ports = {'arduino': 'dummy',
          'keithley': 'dummy'}
@@ -52,10 +49,7 @@ def write_config(**kwargs):
                           'iv': defaults['iv']}
 
     config['paths'] = {'icons': os.path.join(PROJECT_PATH, 'icons'),
-                       'last_save': kwargs.get('save_path', paths['last_save']),
-                       'last_plot_save': kwargs.get('plot_path', paths['last_plot_save']),
-                       'last_analysis': kwargs.get('analysis_path', paths['last_analysis']),
-                       'last_export': kwargs.get('export_path', paths['last_export'])
+                       'last_save': kwargs.get('save_path', paths['last_save'])
                        }
 
     config['ports'] = {'arduino': kwargs.get('arduino', ports['arduino']),

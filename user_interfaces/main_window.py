@@ -31,16 +31,9 @@ class MainWindow(QtWidgets.QMainWindow):
         super(QtWidgets.QMainWindow, self).closeEvent(*args, **kwargs)
 
         # Disconnect sensor before shutdown
-        self.table_widget.tab_experiment.stop_sensor()
-
-        # Save newly created experiment analyses
-        for experiment in self.table_widget.tab_analysis.experiment_dict.values():
-            experiment.save_pickle()
+        self.main_widget.stop_sensor()
 
         # Update config ini with current paths
-        config.write_config(save_path=str(self.table_widget.tab_experiment.directory),
-                            plot_path=str(self.table_widget.tab_analysis.plot_directory),
-                            analysis_path=str(self.table_widget.tab_analysis.analysis_directory),
-                            export_path=str(self.table_widget.tab_analysis.export_directory),
-                            arduino=str(self.table_widget.tab_experiment.sensor_cb.currentText()),
-                            keithley=str(self.table_widget.tab_experiment.source_cb.currentText()))
+        config.write_config(save_path=str(self.main_widget.directory),
+                            arduino=str(self.main_widget.sensor_cb.currentText()),
+                            keithley=str(self.main_widget.source_cb.currentText()))
