@@ -1,21 +1,18 @@
 import os
 from PyQt5 import QtWidgets, QtGui, QtCore
 
-from hardware import serial_ports
 from user_interfaces.widgets.separator import Separator
 from user_interfaces.widgets.switch_button import Switch
 from utility.config import defaults, paths, ports, write_config
 
 
 class CellWidget(QtWidgets.QWidget):
-    start_sensor = QtCore.pyqtSignal()
-    stop_sensor = QtCore.pyqtSignal()
     to_log = QtCore.pyqtSignal(str)
 
     def __init__(self, parent=None):
         super(CellWidget, self).__init__(parent)
+
         self.save_dir = paths['last_save']
-        self.block_sensor = False
 
         vbox_total = QtWidgets.QVBoxLayout()
         vbox_total.addWidget(QtWidgets.QLabel("Parameters", self))
@@ -95,20 +92,8 @@ class CellWidget(QtWidgets.QWidget):
         hbox_terminals.addStretch(-1)
         vbox_total.addLayout(hbox_terminals)
 
-        vbox_total.addWidget(Separator())
-        vbox_total.addWidget(QtWidgets.QLabel("Ports", self))
-        hbox_ports = QtWidgets.QHBoxLayout()
-        hbox_ports.addWidget(QtWidgets.QLabel("Arduino", self))  # TODO: Move to sensor tab
-        self.sensor_cb = QtWidgets.QComboBox()
-        self.sensor_cb.setFixedWidth(90)
-        self.sensor_cb.addItem('dummy')
-        for port in serial_ports.get_serial_ports():
-            self.sensor_cb.addItem(port)
-            if port == ports['arduino']:
-                self.sensor_cb.setCurrentText(port)
-        self.sensor_cb.currentTextChanged.connect(self.sensor_port_changed)
-        hbox_ports.addWidget(self.sensor_cb)
-        hbox_ports.addWidget(QtWidgets.QLabel("Keithley", self))
+        hbox_port = QtWidgets.QHBoxLayout()
+        hbox_port.addWidget(QtWidgets.QLabel("GPIB Port", self))
         self.source_cb = QtWidgets.QComboBox()
         self.source_cb.setFixedWidth(90)
         self.source_cb.addItem('dummy')
@@ -116,14 +101,10 @@ class CellWidget(QtWidgets.QWidget):
         for i in range(self.source_cb.count()):
             if self.source_cb.itemText(i) == ports['keithley']:
                 self.source_cb.setCurrentIndex(i)
-        hbox_ports.addWidget(self.source_cb)
-        hbox_ports.addStretch(-1)
-        self.refresh_button = QtWidgets.QPushButton(
-            QtGui.QIcon(os.path.join(paths['icons'], 'refresh.png')), '')
-        self.refresh_button.clicked.connect(self.update_ports)
-        self.refresh_button.setToolTip('Update Ports')
-        hbox_ports.addWidget(self.refresh_button)
-        vbox_total.addLayout(hbox_ports)
+        self.source_cb.currentTextChanged.connect(self.source_port_changed)
+        hbox_port.addWidget(self.source_cb)
+        hbox_port.addStretch(-1)
+        vbox_total.addLayout(hbox_port)
 
         vbox_total.addWidget(Separator())
         vbox_total.addWidget(QtWidgets.QLabel("Save", self))
@@ -176,21 +157,6 @@ class CellWidget(QtWidgets.QWidget):
         self.save_dir = str(QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Directory', self.save_dir))
         self.folder_edit.setText(self.save_dir)
 
-    def sensor_port_changed(self):
-        if self.block_sensor is False:  # if combobox update is in progress, sensor_port_changed is not triggered
-            self.stop_sensor.emit()
-            self.start_sensor.emit()
-
-    def update_ports(self):
-        self.stop_sensor.emit()
-        self.block_sensor = True
-        self.sensor_cb.clear()
-        self.sensor_cb.addItem('dummy')
-        for port in serial_ports.get_serial_ports():
-            self.sensor_cb.addItem(port)
-        self.block_sensor = False
-        self.start_sensor.emit()
-
     @QtCore.pyqtSlot()
     def update_steps(self):
         try:  # capture empty cells, typos etc during data entry
@@ -198,6 +164,9 @@ class CellWidget(QtWidgets.QWidget):
             self.step_edit.setText("%.3f" % steps)
         except (ZeroDivisionError, ValueError):
             pass
+
+    def source_port_changed(self):
+        ports['keithley'] = self.source_cb.currentText()
 
     def check_iv_parameters(self):
         try:

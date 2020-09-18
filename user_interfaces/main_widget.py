@@ -11,7 +11,7 @@ from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
 from user_interfaces.sensor_tab import SensorWidget
 import utility.colors as colors
-from utility.config import defaults, paths
+from utility.config import defaults
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -45,8 +45,6 @@ class MainWidget(QtWidgets.QWidget):
         self.tabs.setTabPosition(QtWidgets.QTabWidget.South)
 
         self.cell_tab = CellWidget(self)
-        self.cell_tab.start_sensor.connect(self.start_sensor)
-        self.cell_tab.stop_sensor.connect(self.stop_sensor)
         self.cell_tab.clipboard_button.clicked.connect(lambda: self.clipboard('iv'))
         self.cell_tab.start_button.clicked.connect(self.start)
         self.cell_tab.to_log.connect(self.logger)
@@ -134,13 +132,13 @@ class MainWidget(QtWidgets.QWidget):
         self.sensor_tab.diode1_edit.setText("%.1f" % d1val)
         self.sensor_tab.diode2_edit.setText("%.1f" % d2val)
         self.sensor_tab.diode3_edit.setText("%.1f" % d3val)
-        if str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Continuous' and not self.sensor_mes.port == 'dummy':
+        if not(self.sensor_tab.sensor_plot_fixed_time.isChecked()) and not self.sensor_mes.port == 'dummy':
             if self.sensor_tab.start_button.isChecked():
                 self.sensor_mes.line_plot(self.temp_data_line, channel='temp')
                 self.sensor_mes.line_plot(self.power_data_line1, channel='power1')
                 self.sensor_mes.line_plot(self.power_data_line2, channel='power2')
                 self.sensor_mes.line_plot(self.power_data_line3, channel='power3')
-        elif all([str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Fixed Time',
+        elif all([self.sensor_tab.sensor_plot_fixed_time.isChecked(),
                   self.sensor_tab.start_button.isChecked(),
                   not self.sensor_mes.port == 'dummy']):
             if self.sensor_time_data is None:
@@ -175,7 +173,7 @@ class MainWidget(QtWidgets.QWidget):
     def start_sensor(self):
         if self.sensor_mes:
             self.sensor_mes.stop()
-        self.sensor_mes = sensor.ArduinoSensor(port=str(self.cell_tab.sensor_cb.currentText()),
+        self.sensor_mes = sensor.ArduinoSensor(port=str(self.sensor_tab.sensor_cb.currentText()),
                                                baud=int(self.sensor_tab.baud_edit.text()),
                                                n_data_points=int(self.sensor_tab.datapoints_edit.text()),
                                                data_num_bytes=int(self.sensor_tab.databytes_edit.text()),
@@ -197,7 +195,7 @@ class MainWidget(QtWidgets.QWidget):
         self.sensor_time_data = None
         self.sensor_time_data_averaged = None
         # Do not start fixed time measurement if iv-scan is running
-        if str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Fixed Time' and self.cell_tab.start_button.isChecked():
+        if self.sensor_tab.sensor_plot_fixed_time.isChecked() and self.cell_tab.start_button.isChecked():
             self.logger('<span style=\" color:#ff0000;\" >I-V scan is running. '
                         'Stop current experiment before starting fixed time sensor scan.</span>')
             self.sensor_tab.start_button.setChecked(False)
@@ -227,7 +225,7 @@ class MainWidget(QtWidgets.QWidget):
             return
         # Do not start measurement if sensor plot with fixed time is active
         elif self.sensor_tab.start_button.isChecked() \
-                and str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Fixed Time':
+                and self.sensor_tab.sensor_plot_fixed_time.isChecked():
             self.logger('<span style=\" color:#ff0000;\" >Fixed time sensor scan is running. '
                         'Stop current sensor experiment first.</span>')
             self.cell_tab.start_button.setChecked(False)
@@ -356,7 +354,7 @@ class MainWidget(QtWidgets.QWidget):
         save_file.write("Traces: %s\n" % str(self.cell_tab.reps_edit.text()))
         save_file.write("Delay between Traces: %s\n" % str(self.cell_tab.rep_delay_edit.text()))
         save_file.write("\nSensor Parameters\n")
-        save_file.write("Port: %s\n" % str(self.cell_tab.sensor_cb.currentText()))
+        save_file.write("Port: %s\n" % str(self.sensor_tab.sensor_cb.currentText()))
         save_file.write("Baud Rate: %s\n" % str(self.sensor_tab.baud_edit.text()))
         save_file.write("Bytes per Datapoint: %s\n" % str(self.sensor_tab.databytes_edit.text()))
         save_file.write("Datapoints: %s\n" % str(self.sensor_tab.datapoints_edit.text()))
