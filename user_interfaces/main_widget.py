@@ -1,6 +1,7 @@
 import datetime
 import numpy as np
 import os
+import pandas as pd
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 
@@ -10,7 +11,6 @@ from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
 import utility.colors as colors
 from utility.config import defaults, paths
-from utility.save_info import save_info
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -21,7 +21,7 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
         self.data_iv = np.zeros((5, 1))
-        self.info_data = [['.']] + defaults['info']  # update as references to info_tab
+        self.info_data = defaults['info']  # update as references to info_tab
         self.exp_count = 0
 
         vbox_total = QtWidgets.QVBoxLayout()
@@ -386,6 +386,7 @@ class MainWidget(QtWidgets.QWidget):
             self.cell_tab.start_button.setChecked(False)
             return
         self.cell_tab.start_button.setText("Stop IV")
+        self.info_tab.save_defaults()
         if self.iv_mes:
             self.iv_mes.close()
         experiment_delay = 1 if self.exp_count == 0 else float(self.cell_tab.exp_delay_edit.text()) * 60
@@ -409,11 +410,10 @@ class MainWidget(QtWidgets.QWidget):
         if self.exp_count == 0 and int(self.cell_tab.exps_edit.text()) > 1:  # count file names from ' 0' if multiple
             os.rmdir(self.cell_tab.save_dir)
             self.cell_tab.save_dir += ' 0'
-            self.info_data[1][0] += ' 0'
+            defaults['info'][0] += ' 0'
             self.folder_edit.setText(self.cell_tab.save_dir)
             if not os.path.exists(self.cell_tab.save_dir):
                 os.makedirs(self.cell_tab.save_dir)
-        self.info_data[0][0] = self.cell_tab.save_dir
         self.iv_mes.read_keithley_start()
         self.exp_count += 1
 
@@ -441,8 +441,8 @@ class MainWidget(QtWidgets.QWidget):
             self.cell_tab.save_dir = self.cell_tab.save_dir[:-(len(str(self.exp_count - 1)) + 1)]
             self.cell_tab.save_dir += ' %d' % self.exp_count
             self.folder_edit.setText(self.cell_tab.save_dir)
-            self.info_data[1][0] = self.info_data[1][0][:-(len(str(self.exp_count - 1)) + 1)]
-            self.info_data[1][0] += ' %d' % self.exp_count
+            defaults['info'][0] = defaults['info'][0][:-(len(str(self.exp_count - 1)) + 1)]
+            defaults['info'][0] += ' %d' % self.exp_count
             if not os.path.exists(self.cell_tab.save_dir):
                 os.makedirs(self.cell_tab.save_dir)
             self.start_button.click()
@@ -470,18 +470,19 @@ class MainWidget(QtWidgets.QWidget):
         self.data_iv['Irradiance 3 (W/m2)'] = self.data_sensor[3]
         self.data_iv['Irradiance 4 (W/m2)'] = self.data_sensor[4]
         self.data_iv.to_csv(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(repetition)))
-        save_info(file_path=os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.dat' % str(repetition)),
-                  folder=self.info_data[0], experiment_name=self.info_data[1],
-                  experiment_date=self.info_data[2], film_id=self.info_data[3],
-                  pv_cell_id=self.info_data[4], setup_location=self.info_data[5],
-                  setup_calibrated=self.info_data[6], setup_suns=self.info_data[7],
-                  pid_proportional_band=self.info_data[8], pid_integral=self.info_data[9],
-                  pid_derivative=self.info_data[10], pid_fuzzy_overshoot=self.info_data[11],
-                  pid_heat_tcr1=self.info_data[12], pid_cool_tcr2=self.info_data[13],
-                  pid_setpoint=self.info_data[14], room_temperature=self.info_data[15],
-                  room_humidity=self.info_data[16])
+        self.save_info(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.dat' % str(repetition)),
+                       self.cell_tab.save_dir, *defaults['info'])
         if repetition == (self.iv_mes.repetitions - 1):
             self.start_button.setChecked(False)
+
+    @staticmethod
+    def save_info(file_path='.', *args):
+        info_pars = ['folder', 'experiment_name', 'experiment_date', 'film_id', 'pv_cell_id', 'setup_location',
+                     'setup_calibrated', 'setup_suns', 'pid_proportional_band', 'pid_integral',
+                     'pid_derivative', 'pid_fuzzy_overshoot', 'pid_heat_tcr1', 'pid_cool_tcr2',
+                     'pid_setpoint', 'room_temperature', 'room_humidity']
+        df = pd.DataFrame({par: arg for par, arg in zip(info_pars, args)}, index=[0])
+        df.to_csv(file_path)
 
     @QtCore.pyqtSlot()
     def save_configuration(self):
@@ -498,12 +499,13 @@ class MainWidget(QtWidgets.QWidget):
         save_file.write("Voltage Step (V): %s\n" % str(self.cell_tab.step_edit.text()))
         save_file.write("Number of Voltage Steps: %s\n" % str(self.cell_tab.nstep_edit.text()))
         save_file.write("Current Limit (A): %s\n" % str(self.cell_tab.ilimit_edit.text()))
+        save_file.write("Voltage Protection (V): %s\n" % str(self.cell_tab.vprot_edit.text()))
         save_file.write("Averages per Datapoint: %s\n" % str(self.cell_tab.naverage_edit.text()))
         save_file.write("Delay between Datapoints: %s\n" % str(self.cell_tab.delay_edit.text()))
         save_file.write("Traces: %s\n" % str(self.cell_tab.reps_edit.text()))
         save_file.write("Delay between Traces: %s\n" % str(self.cell_tab.rep_delay_edit.text()))
         save_file.write("\nSensor Parameters\n")
-        save_file.write("Port: %s\n" % str(self.sensor_cb.currentText()))
+        save_file.write("Port: %s\n" % str(self.cell_tab.sensor_cb.currentText()))
         save_file.write("Baud Rate: %s\n" % str(self.baud_edit.text()))
         save_file.write("Bytes per Datapoint: %s\n" % str(self.databytes_edit.text()))
         save_file.write("Datapoints: %s\n" % str(self.datapoints_edit.text()))
@@ -516,7 +518,7 @@ class MainWidget(QtWidgets.QWidget):
         if any([not os.path.exists(self.cell_tab.save_dir),
                 os.path.exists(os.path.join(self.cell_tab.save_dir, 'Settings.txt')),
                 os.path.exists(os.path.join(self.cell_tab.save_dir, 'IV_Curve_0.csv'))]):
-            self.folder_dialog()
+            self.cell_tab.folder_dialog()
             self.check_save_path()
 
     @QtCore.pyqtSlot(str)

@@ -3,15 +3,15 @@ import os
 from configparser import ConfigParser
 
 from utility.version import __version__
-from utility.save_info import info_defaults
 
 PROJECT_PATH = os.path.dirname(os.path.dirname(__file__))
 
 global_confs = {'progname': 'Lambda IV',
                 'progversion': __version__}
 
-defaults = {'info': info_defaults[1:],
-            'iv': [-0.01, 0.7, 0.005, 142, 0.5, 20, 5, 0.025, 5, 2.0, 1, 30.0, False, False]}
+defaults = {'info': ['N/A', datetime.date.today(), 'unknown', 'unknown', 'Vinery Way',
+                     datetime.date(1970, 1, 1), -1, 8, 209, 38, 0.46, 0.1, 0.1, 25, -1, -1],
+            'cell': [-0.01, 0.7, 0.005, 142, 0.5, 20, 5, 0.025, 5, 2.0, 1, 30.0, False, False]}
 
 paths = {'icons': os.path.join(PROJECT_PATH, 'icons'),
          'last_save': PROJECT_PATH}
@@ -46,7 +46,7 @@ def write_config(**kwargs):
                          }
 
     config['defaults'] = {'info': defaults['info'],
-                          'iv': defaults['iv']}
+                          'cell': defaults['cell']}
 
     config['paths'] = {'icons': os.path.join(PROJECT_PATH, 'icons'),
                        'last_save': kwargs.get('save_path', paths['last_save'])
