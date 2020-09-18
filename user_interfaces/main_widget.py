@@ -9,6 +9,7 @@ import hardware.keithley as keithley
 import hardware.sensor as sensor
 from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
+from user_interfaces.sensor_tab import SensorWidget
 import utility.colors as colors
 from utility.config import defaults, paths
 
@@ -51,147 +52,13 @@ class MainWidget(QtWidgets.QWidget):
         self.cell_tab.to_log.connect(self.logger)
         self.tabs.addTab(self.cell_tab, 'PV Cell')
 
-        sensor_col = QtWidgets.QWidget()
-        vbox_sensor_col = QtWidgets.QVBoxLayout()
-        self.sensors_group_box = QtWidgets.QGroupBox('Sensor Readout')
-        vbox_sensors = QtWidgets.QVBoxLayout()
-        grid_sensors = QtWidgets.QGridLayout()
-        self.temperature_label = QtWidgets.QLabel("Temperature (C)", self)
-        grid_sensors.addWidget(self.temperature_label, 0, 0)
-        self.temperature_edit = QtWidgets.QLineEdit('25', self)
-        self.temperature_edit.setFixedWidth(60)
-        self.temperature_edit.setDisabled(True)
-        grid_sensors.addWidget(self.temperature_edit, 0, 1)
-        self.diode1_label = QtWidgets.QLabel("Diode 1 (W/m2)", self)
-        grid_sensors.addWidget(self.diode1_label, 1, 0)
-        self.diode1_edit = QtWidgets.QLineEdit('0', self)
-        self.diode1_edit.setFixedWidth(60)
-        self.diode1_edit.setDisabled(True)
-        grid_sensors.addWidget(self.diode1_edit, 1, 1)
-        self.diode2_label = QtWidgets.QLabel("Diode 2 (W/m2)", self)
-        grid_sensors.addWidget(self.diode2_label, 1, 2)
-        self.diode2_edit = QtWidgets.QLineEdit('0', self)
-        self.diode2_edit.setFixedWidth(60)
-        self.diode2_edit.setDisabled(True)
-        grid_sensors.addWidget(self.diode2_edit, 1, 3)
-        self.diode3_label = QtWidgets.QLabel("Diode 3 (W/m2)", self)
-        grid_sensors.addWidget(self.diode3_label, 2, 0)
-        self.diode3_edit = QtWidgets.QLineEdit('0', self)
-        self.diode3_edit.setFixedWidth(60)
-        self.diode3_edit.setDisabled(True)
-        grid_sensors.addWidget(self.diode3_edit, 2, 1)
-        self.diode4_label = QtWidgets.QLabel("Diode 4 (W/m2)", self)
-        grid_sensors.addWidget(self.diode4_label, 2, 2)
-        self.diode4_edit = QtWidgets.QLineEdit('0', self)
-        self.diode4_edit.setFixedWidth(60)
-        self.diode4_edit.setDisabled(True)
-        grid_sensors.addWidget(self.diode4_edit, 2, 3)
-        vbox_sensors.addLayout(grid_sensors)
-        self.sensors_group_box.setLayout(vbox_sensors)
-        vbox_sensor_col.addWidget(self.sensors_group_box)
-
-        hbox_sens_plot_setup = QtWidgets.QHBoxLayout()
-        vbox_sensor_meas = QtWidgets.QVBoxLayout()
-        self.sensor_meas_group_box = QtWidgets.QGroupBox('Sensor Measure')
-        grid_sensor_meas = QtWidgets.QGridLayout()
-        self.sensor_plot_label = QtWidgets.QLabel("Plot", self)
-        grid_sensor_meas.addWidget(self.sensor_plot_label, 0, 0)
-        self.sensor_plot_cb = QtWidgets.QComboBox()
-        self.sensor_plot_cb.setFixedWidth(120)
-        self.sensor_plot_cb.addItem('Continuous')
-        self.sensor_plot_cb.addItem('Fixed Time')
-        self.sensor_plot_cb.currentTextChanged.connect(self.sensor_mode_changed)
-        grid_sensor_meas.addWidget(self.sensor_plot_cb, 0, 1)
-        self.sensor_time_label = QtWidgets.QLabel("Time (s)", self)
-        grid_sensor_meas.addWidget(self.sensor_time_label, 1, 0)
-        self.sensor_time_edit = QtWidgets.QLineEdit('60', self)
-        self.sensor_time_edit.setFixedWidth(80)
-        grid_sensor_meas.addWidget(self.sensor_time_edit, 1, 1)
-        self.sensor_avg_label = QtWidgets.QLabel("# Averages", self)
-        grid_sensor_meas.addWidget(self.sensor_avg_label, 2, 0)
-        self.sensor_avg_edit = QtWidgets.QLineEdit('1', self)
-        self.sensor_avg_edit.setFixedWidth(80)
-        grid_sensor_meas.addWidget(self.sensor_avg_edit, 2, 1)
-        vbox_sensor_meas.addLayout(grid_sensor_meas)
-        vbox_sensor_meas.addStretch(-1)
-
-        hbox_sens_ctrl = QtWidgets.QHBoxLayout()
-        temp_icon = QtGui.QIcon()
-        temp_icon.addPixmap(QtGui.QPixmap(os.path.join(paths['icons'], 'temp_off.png')),
-                            QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        temp_icon.addPixmap(QtGui.QPixmap(os.path.join(paths['icons'], 'temp_on.png')),
-                            QtGui.QIcon.Normal, QtGui.QIcon.On)
-        self.temp_button = QtWidgets.QPushButton(QtGui.QIcon(temp_icon), '')
-        self.temp_button.setIconSize(QtCore.QSize(40, 40))
-        self.temp_button.setCheckable(True)
-        self.temp_button.clicked.connect(lambda: self.plot_sensor('temperature'))
-        self.temp_button.setToolTip('Plot temperature')
-        hbox_sens_ctrl.addWidget(self.temp_button)
-        power_icon = QtGui.QIcon()
-        power_icon.addPixmap(QtGui.QPixmap(os.path.join(paths['icons'], 'power_off.png')),
-                             QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        power_icon.addPixmap(QtGui.QPixmap(os.path.join(paths['icons'], 'power_on.png')),
-                             QtGui.QIcon.Normal, QtGui.QIcon.On)
-        self.power_button = QtWidgets.QPushButton(QtGui.QIcon(power_icon), '')
-        self.power_button.setIconSize(QtCore.QSize(40, 40))
-        self.power_button.setCheckable(True)
-        self.power_button.clicked.connect(lambda: self.plot_sensor('power'))
-        self.power_button.setToolTip('Plot power')
-        hbox_sens_ctrl.addWidget(self.power_button)
-        hbox_sens_ctrl.addStretch(-1)
-        self.sensor_clipboard_button = QtWidgets.QPushButton(
-            QtGui.QIcon(os.path.join(paths['icons'], 'clipboard.png')), '')
-        self.sensor_clipboard_button.clicked.connect(lambda: self.clipboard('sensor'))
-        self.sensor_clipboard_button.setToolTip('Save plot to clipboard')
-        hbox_sens_ctrl.addWidget(self.sensor_clipboard_button)
-        vbox_sensor_meas.addLayout(hbox_sens_ctrl)
-        self.sensor_meas_group_box.setLayout(vbox_sensor_meas)
-        hbox_sens_plot_setup.addWidget(self.sensor_meas_group_box)
-        vbox_sensor_col.addLayout(hbox_sens_plot_setup)
-
-        self.arduino_group_box = QtWidgets.QGroupBox('Sensor Parameters')
-        grid_arduino = QtWidgets.QGridLayout()
-        self.baud_label = QtWidgets.QLabel("Baud rate", self)
-        grid_arduino.addWidget(self.baud_label, 0, 0)
-        self.baud_edit = QtWidgets.QLineEdit('38400', self)
-        self.baud_edit.setFixedWidth(60)
-        self.baud_edit.setDisabled(True)
-        grid_arduino.addWidget(self.baud_edit, 0, 1)
-        self.datapoints_label = QtWidgets.QLabel("# Data points", self)
-        grid_arduino.addWidget(self.datapoints_label, 0, 2)
-        self.datapoints_edit = QtWidgets.QLineEdit('100', self)
-        self.datapoints_edit.setFixedWidth(60)
-        self.datapoints_edit.setDisabled(True)
-        grid_arduino.addWidget(self.datapoints_edit, 0, 3)
-        self.databytes_label = QtWidgets.QLabel("Data bytes", self)
-        grid_arduino.addWidget(self.databytes_label, 1, 0)
-        self.databytes_edit = QtWidgets.QLineEdit('2', self)
-        self.databytes_edit.setFixedWidth(60)
-        self.databytes_edit.setDisabled(True)
-        grid_arduino.addWidget(self.databytes_edit, 1, 1)
-        self.timeout_label = QtWidgets.QLabel("Timeout (s)", self)
-        grid_arduino.addWidget(self.timeout_label, 1, 2)
-        self.timeout_edit = QtWidgets.QLineEdit('30', self)
-        self.timeout_edit.setFixedWidth(60)
-        self.timeout_edit.setDisabled(True)
-        grid_arduino.addWidget(self.timeout_edit, 1, 3)
-        self.ais_label = QtWidgets.QLabel("Analogue inputs", self)
-        grid_arduino.addWidget(self.ais_label, 2, 0)
-        self.ais_edit = QtWidgets.QLineEdit('5', self)
-        self.ais_edit.setFixedWidth(60)
-        self.ais_edit.setDisabled(True)
-        grid_arduino.addWidget(self.ais_edit, 2, 1)
-        self.query_label = QtWidgets.QLabel("Query period (s)", self)
-        grid_arduino.addWidget(self.query_label, 2, 2)
-        self.query_edit = QtWidgets.QLineEdit('0.25', self)
-        self.query_edit.setFixedWidth(60)
-        self.query_edit.setDisabled(True)
-        grid_arduino.addWidget(self.query_edit, 2, 3)
-        self.arduino_group_box.setLayout(grid_arduino)
-        vbox_sensor_col.addWidget(self.arduino_group_box)
-        vbox_sensor_col.addStretch(-1)
-        sensor_col.setLayout(vbox_sensor_col)
-        self.tabs.addTab(sensor_col, 'Sensors')
+        self.sensor_tab = SensorWidget(self)
+        self.sensor_tab.start_sensor.connect(self.start_sensor)
+        self.sensor_tab.stop_sensor.connect(self.stop_sensor)
+        self.sensor_tab.clipboard_button.clicked.connect(lambda: self.clipboard('sensor'))
+        self.sensor_tab.start_button.clicked.connect(self.plot_sensors)
+        self.sensor_tab.to_log.connect(self.logger)
+        self.tabs.addTab(self.sensor_tab, 'Sensors')
 
         self.info_tab = InfoWidget(self)
         self.tabs.addTab(self.info_tab, 'Info')
@@ -205,15 +72,25 @@ class MainWidget(QtWidgets.QWidget):
         hbox_sens_plot = QtWidgets.QHBoxLayout()
         self.sensor_graph = pg.PlotWidget()
         self.sensor_graph.plotItem.getAxis('left').setPen(colors.black_pen)
+        self.sensor_graph.plotItem.getAxis('right').setPen(colors.black_pen)
         self.sensor_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
         self.sensor_graph.setTitle('Sensor Readout')
-        self.sensor_graph.setLabel('left', '')
+        # create a new ViewBox, link the right axis to its coordinate system
+        self.sensor_viewbox = pg.ViewBox()
+        self.sensor_graph.scene().addItem(self.sensor_viewbox)
+        self.sensor_graph.getAxis('right').linkToView(self.sensor_viewbox)
+        self.sensor_viewbox.setXLink(self.sensor_graph)
+        self.sensor_graph.setLabel('left', 'Temperature (C)')
+        self.sensor_graph.setLabel('right', 'Irradiance (W/m2)')
         self.sensor_graph.setLabel('bottom', 'Time (s)')
         self.temp_data_line = self.sensor_graph.plot(pen=colors.blue_pen)
-        self.power_data_line1 = self.sensor_graph.plot(pen=colors.blue_pen)
-        self.power_data_line2 = self.sensor_graph.plot(pen=colors.red_pen)
-        self.power_data_line3 = self.sensor_graph.plot(pen=colors.green_pen)
-        self.power_data_line4 = self.sensor_graph.plot(pen=colors.orange_pen)
+        self.power_data_line1 = pg.PlotCurveItem(pen=colors.red_pen)
+        self.power_data_line2 = pg.PlotCurveItem(pen=colors.green_pen)
+        self.power_data_line3 = pg.PlotCurveItem(pen=colors.orange_pen)
+        self.sensor_viewbox.addItem(self.power_data_line1)
+        self.sensor_viewbox.addItem(self.power_data_line2)
+        self.sensor_viewbox.addItem(self.power_data_line3)
+
         hbox_sens_plot.addWidget(self.sensor_graph)
         self.sens_plot_group_box.setLayout(hbox_sens_plot)
         hbox_bottom_left.addWidget(self.sens_plot_group_box)
@@ -229,7 +106,8 @@ class MainWidget(QtWidgets.QWidget):
         vbox_total.addLayout(hbox_bottom, 2)
         self.setLayout(vbox_total)
 
-        self.data_sensor = np.zeros((int(self.ais_edit.text()), int(self.cell_tab.nstep_edit.text())))
+        self.data_sensor = np.zeros((int(self.sensor_tab.ais_edit.text()),
+                                     int(self.cell_tab.nstep_edit.text())))
         self.sensor_time_data = None
         self.sensor_time_data_averaged = None
         self.sensor_time_max = None
@@ -251,38 +129,33 @@ class MainWidget(QtWidgets.QWidget):
     def update_sensor(self):
         if not self.sensor_mes:
             return
-        time_val, [tval, d1val, d2val, d3val, d4val] = self.sensor_mes.get_sensor_latest()
-        self.temperature_edit.setText("%.2f" % tval)
-        self.diode1_edit.setText("%.1f" % d1val)
-        self.diode2_edit.setText("%.1f" % d2val)
-        self.diode3_edit.setText("%.1f" % d3val)
-        self.diode4_edit.setText("%.1f" % d4val)
-        if str(self.sensor_plot_cb.currentText()) == 'Continuous' and not self.sensor_mes.port == 'dummy':
-            if self.temp_button.isChecked():
+        time_val, [tval, d1val, d2val, d3val] = self.sensor_mes.get_sensor_latest()
+        self.sensor_tab.temperature_edit.setText("%.2f" % tval)
+        self.sensor_tab.diode1_edit.setText("%.1f" % d1val)
+        self.sensor_tab.diode2_edit.setText("%.1f" % d2val)
+        self.sensor_tab.diode3_edit.setText("%.1f" % d3val)
+        if str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Continuous' and not self.sensor_mes.port == 'dummy':
+            if self.sensor_tab.start_button.isChecked():
                 self.sensor_mes.line_plot(self.temp_data_line, channel='temp')
-            if self.power_button.isChecked():
                 self.sensor_mes.line_plot(self.power_data_line1, channel='power1')
                 self.sensor_mes.line_plot(self.power_data_line2, channel='power2')
                 self.sensor_mes.line_plot(self.power_data_line3, channel='power3')
-                self.sensor_mes.line_plot(self.power_data_line4, channel='power4')
-        elif all([str(self.sensor_plot_cb.currentText()) == 'Fixed Time',
-                  (self.temp_button.isChecked() or self.power_button.isChecked()),
+        elif all([str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Fixed Time',
+                  self.sensor_tab.start_button.isChecked(),
                   not self.sensor_mes.port == 'dummy']):
             if self.sensor_time_data is None:
-                self.sensor_time_data = [[time_val], [tval], [d1val], [d2val], [d3val], [d4val]]
-                self.sensor_time_data_averaged = [[], [], [], [], [], []]
-                if self.check_sensor_parameters() is False:
-                    self.temp_button.setChecked(False)
-                    self.power_button.setChecked(False)
+                self.sensor_time_data = [[time_val], [tval], [d1val], [d2val], [d3val]]
+                self.sensor_time_data_averaged = [[], [], [], [], []]
+                if self.sensor_tab.check_sensor_parameters() is False:
+                    self.sensor_tab.start_button.setChecked(False)
                     return
-                self.sensor_time_max = float(self.sensor_time_edit.text())
-                self.sensor_avg = int(self.sensor_avg_edit.text())
+                self.sensor_time_max = float(self.sensor_tab.sensor_time_edit.text())
+                self.sensor_avg = int(self.sensor_tab.sensor_avg_edit.text())
             elif (time_val - self.sensor_time_data[0][0]) > self.sensor_time_max:
-                self.temp_button.setChecked(False)
-                self.power_button.setChecked(False)
+                self.sensor_tab.start_button.setChecked(False)
                 return
             else:
-                latest_data = [time_val, tval, d1val, d2val, d3val, d4val]
+                latest_data = [time_val, tval, d1val, d2val, d3val]
                 for i, _ in enumerate(self.sensor_time_data):
                     self.sensor_time_data[i].append(latest_data[i])
                 if len(self.sensor_time_data[0]) % self.sensor_avg == 0:
@@ -292,73 +165,51 @@ class MainWidget(QtWidgets.QWidget):
                              for values in zip(*[iter(self.sensor_time_data[i])] * self.sensor_avg)]
                     self.sensor_time_data_averaged[0] = [i - self.sensor_time_data_averaged[0][0]
                                                          for i in self.sensor_time_data_averaged[0]]
-            if self.temp_button.isChecked():
+            if self.sensor_tab.start_button.isChecked():
                 self.temp_data_line.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[1])
-            if self.power_button.isChecked():
                 self.power_data_line1.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[2])
                 self.power_data_line2.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[3])
                 self.power_data_line3.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[4])
-                self.power_data_line4.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[5])
 
     @QtCore.pyqtSlot()
     def start_sensor(self):
         if self.sensor_mes:
             self.sensor_mes.stop()
         self.sensor_mes = sensor.ArduinoSensor(port=str(self.cell_tab.sensor_cb.currentText()),
-                                               baud=int(self.baud_edit.text()),
-                                               n_data_points=int(self.datapoints_edit.text()),
-                                               data_num_bytes=int(self.databytes_edit.text()),
-                                               n_ai=int(self.ais_edit.text()),
-                                               timeout=float(self.timeout_edit.text()),
-                                               query_period=float(self.query_edit.text()))
+                                               baud=int(self.sensor_tab.baud_edit.text()),
+                                               n_data_points=int(self.sensor_tab.datapoints_edit.text()),
+                                               data_num_bytes=int(self.sensor_tab.databytes_edit.text()),
+                                               n_ai=int(self.sensor_tab.ais_edit.text()),
+                                               timeout=float(self.sensor_tab.timeout_edit.text()),
+                                               query_period=float(self.sensor_tab.query_edit.text()))
         self.sensor_register(self.sensor_mes)
         self.sensor_mes.start()
 
     @QtCore.pyqtSlot()
     def stop_sensor(self):
-        self.temp_button.setChecked(False)
-        self.power_button.setChecked(False)
-        self.plot_sensor()
+        self.sensor_tab.start_button.setChecked(False)
         if self.sensor_mes:
             self.sensor_mes.stop()
             self.sensor_mes = None
 
-    def sensor_mode_changed(self):
-        self.stop_sensor()
-        self.start_sensor()
-
-    def plot_sensor(self, origin=None):
+    def plot_sensors(self):
         # reset stored sensor data
         self.sensor_time_data = None
         self.sensor_time_data_averaged = None
         # Do not start fixed time measurement if iv-scan is running
-        if str(self.sensor_plot_cb.currentText()) == 'Fixed Time' and self.start_button.isChecked():
+        if str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Fixed Time' and self.cell_tab.start_button.isChecked():
             self.logger('<span style=\" color:#ff0000;\" >I-V scan is running. '
                         'Stop current experiment before starting fixed time sensor scan.</span>')
-            self.temp_button.setChecked(False)
-            self.power_button.setChecked(False)
+            self.sensor_tab.start_button.setChecked(False)
             return
-        # Toggle plot settings between temperature and irradiance
-        if origin == 'temperature' and self.power_button.isChecked():
-            self.power_button.setChecked(False)
-        elif origin == 'power' and self.temp_button.isChecked():
-            self.temp_button.setChecked(False)
-        if self.temp_button.isChecked():
-            self.sensor_graph.setLabel('left', 'Temperature (C)')
-            self.power_data_line1.setData([], [])
-            self.power_data_line2.setData([], [])
-            self.power_data_line3.setData([], [])
-            self.power_data_line4.setData([], [])
-        elif self.power_button.isChecked():
-            self.sensor_graph.setLabel('left', 'Irradiance (W/m2)')
-            self.temp_data_line.setData([], [])
+        if self.sensor_tab.start_button.isChecked():
+            self.sensor_tab.start_button.setText("Stop Plot")
         else:
-            self.sensor_graph.setLabel('left', '')
-            self.temp_data_line.setData([], [])
-            self.power_data_line1.setData([], [])
-            self.power_data_line2.setData([], [])
-            self.power_data_line3.setData([], [])
-            self.power_data_line4.setData([], [])
+            self.sensor_tab.start_button.setText("Plot Sensors")
+        self.temp_data_line.setData([], [])
+        self.power_data_line1.setData([], [])
+        self.power_data_line2.setData([], [])
+        self.power_data_line3.setData([], [])
 
     def iv_register(self, mes):
         self.iv_mes = mes
@@ -375,8 +226,8 @@ class MainWidget(QtWidgets.QWidget):
             self.stop()
             return
         # Do not start measurement if sensor plot with fixed time is active
-        elif (self.temp_button.isChecked() or self.power_button.isChecked()) \
-                and str(self.sensor_plot_cb.currentText()) == 'Fixed Time':
+        elif self.sensor_tab.start_button.isChecked() \
+                and str(self.sensor_tab.sensor_plot_cb.currentText()) == 'Fixed Time':
             self.logger('<span style=\" color:#ff0000;\" >Fixed time sensor scan is running. '
                         'Stop current sensor experiment first.</span>')
             self.cell_tab.start_button.setChecked(False)
@@ -405,13 +256,13 @@ class MainWidget(QtWidgets.QWidget):
                                         use_rear_terminals=self.cell_tab.rear_terminal_btn.isChecked()
                                         )
         self.iv_register(self.iv_mes)
-        self.data_sensor = np.zeros((int(self.ais_edit.text()), int(self.cell_tab.nstep_edit.text())))
+        self.data_sensor = np.zeros((int(self.sensor_tab.ais_edit.text()), int(self.cell_tab.nstep_edit.text())))
         self.check_save_path()
         if self.exp_count == 0 and int(self.cell_tab.exps_edit.text()) > 1:  # count file names from ' 0' if multiple
             os.rmdir(self.cell_tab.save_dir)
             self.cell_tab.save_dir += ' 0'
             defaults['info'][0] += ' 0'
-            self.folder_edit.setText(self.cell_tab.save_dir)
+            self.cell_tab.folder_edit.setText(self.cell_tab.save_dir)
             if not os.path.exists(self.cell_tab.save_dir):
                 os.makedirs(self.cell_tab.save_dir)
         self.iv_mes.read_keithley_start()
@@ -440,7 +291,7 @@ class MainWidget(QtWidgets.QWidget):
         if self.exp_count < int(self.cell_tab.exps_edit.text()):
             self.cell_tab.save_dir = self.cell_tab.save_dir[:-(len(str(self.exp_count - 1)) + 1)]
             self.cell_tab.save_dir += ' %d' % self.exp_count
-            self.folder_edit.setText(self.cell_tab.save_dir)
+            self.cell_tab.folder_edit.setText(self.cell_tab.save_dir)
             defaults['info'][0] = defaults['info'][0][:-(len(str(self.exp_count - 1)) + 1)]
             defaults['info'][0] += ' %d' % self.exp_count
             if not os.path.exists(self.cell_tab.save_dir):
@@ -468,12 +319,12 @@ class MainWidget(QtWidgets.QWidget):
         self.data_iv['Irradiance 1 (W/m2)'] = self.data_sensor[1]
         self.data_iv['Irradiance 2 (W/m2)'] = self.data_sensor[2]
         self.data_iv['Irradiance 3 (W/m2)'] = self.data_sensor[3]
-        self.data_iv['Irradiance 4 (W/m2)'] = self.data_sensor[4]
         self.data_iv.to_csv(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(repetition)))
         self.save_info(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.dat' % str(repetition)),
                        self.cell_tab.save_dir, *defaults['info'])
         if repetition == (self.iv_mes.repetitions - 1):
-            self.start_button.setChecked(False)
+            self.cell_tab.start_button.setChecked(False)
+            self.cell_tab.start_button.setText("Start IV")
 
     @staticmethod
     def save_info(file_path='.', *args):
@@ -506,12 +357,12 @@ class MainWidget(QtWidgets.QWidget):
         save_file.write("Delay between Traces: %s\n" % str(self.cell_tab.rep_delay_edit.text()))
         save_file.write("\nSensor Parameters\n")
         save_file.write("Port: %s\n" % str(self.cell_tab.sensor_cb.currentText()))
-        save_file.write("Baud Rate: %s\n" % str(self.baud_edit.text()))
-        save_file.write("Bytes per Datapoint: %s\n" % str(self.databytes_edit.text()))
-        save_file.write("Datapoints: %s\n" % str(self.datapoints_edit.text()))
-        save_file.write("Analogue Inputs: %s\n" % str(self.ais_edit.text()))
-        save_file.write("Query Period (s): %s\n" % str(self.query_edit.text()))
-        save_file.write("Timeout (s): %s\n" % str(self.timeout_edit.text()))
+        save_file.write("Baud Rate: %s\n" % str(self.sensor_tab.baud_edit.text()))
+        save_file.write("Bytes per Datapoint: %s\n" % str(self.sensor_tab.databytes_edit.text()))
+        save_file.write("Datapoints: %s\n" % str(self.sensor_tab.datapoints_edit.text()))
+        save_file.write("Analogue Inputs: %s\n" % str(self.sensor_tab.ais_edit.text()))
+        save_file.write("Query Period (s): %s\n" % str(self.sensor_tab.query_edit.text()))
+        save_file.write("Timeout (s): %s\n" % str(self.sensor_tab.timeout_edit.text()))
         save_file.close()
 
     def check_save_path(self):
@@ -526,19 +377,3 @@ class MainWidget(QtWidgets.QWidget):
         timestring = '[' + datetime.datetime.now().strftime('%H:%M:%S') + '] '
         self.log_edit.append(timestring + string)
         self.log_edit.moveCursor(QtGui.QTextCursor.End)
-
-    def check_sensor_parameters(self):
-        try:
-            float(self.sensor_time_edit.text())
-            int(self.sensor_avg_edit.text())
-        except (ZeroDivisionError, ValueError):
-            self.logger('<span style=\" color:#ff0000;\" >Some parameters are not in the right format. '
-                        'Please check before starting measurement.</span>')
-            return False
-        if any([float(self.sensor_time_edit.text()) < 1.0,
-                int(self.sensor_avg_edit.text()) < 1
-                ]):
-            self.logger('<span style=\" color:#ff0000;\" >Some parameters are out of bounds. '
-                        'Please check before starting measurement.</span>')
-            return False
-        return True

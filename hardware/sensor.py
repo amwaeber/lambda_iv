@@ -10,7 +10,7 @@ class ArduinoSensor(QtCore.QObject):
     update = QtCore.pyqtSignal()
     to_log = QtCore.pyqtSignal(str)
 
-    def __init__(self, port='COM3', baud=38400, n_data_points=100, data_num_bytes=2, n_ai=5, timeout=30.0,
+    def __init__(self, port='COM3', baud=38400, n_data_points=100, data_num_bytes=2, n_ai=4, timeout=30.0,
                  query_period=0.25):
         super(ArduinoSensor, self).__init__()
         self.port = port
@@ -61,8 +61,7 @@ class ArduinoSensor(QtCore.QObject):
 
     def line_plot(self, target_line=None, channel=None):
         if target_line is None:
-            graph = pg.PlotWidget()
-            target_line = graph.plot()
+            target_line = pg.PlotCurveItem()
         if self.ser is None:
             xval, yval = [], []
         elif channel == 'temp':
@@ -74,8 +73,6 @@ class ArduinoSensor(QtCore.QObject):
             xval, yval, _ = self.ser.get_serial_data(2)
         elif channel == 'power3':
             xval, yval, _ = self.ser.get_serial_data(3)
-        elif channel == 'power4':
-            xval, yval, _ = self.ser.get_serial_data(4)
         else:
             xval, yval = [], []
         target_line.setData(xval, yval)

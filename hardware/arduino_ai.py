@@ -12,7 +12,7 @@ import utility.conversions as conversions
 class SerialRead(QtCore.QObject):
     to_log = QtCore.pyqtSignal(str)
 
-    def __init__(self, serial_port='COM3', serial_baud=38400, n_data_points=100, data_num_bytes=2, n_ai=5):
+    def __init__(self, serial_port='COM3', serial_baud=38400, n_data_points=100, data_num_bytes=2, n_ai=4):
         super(SerialRead, self).__init__()
         self.port = serial_port
         self.baud = serial_baud
@@ -62,7 +62,7 @@ class SerialRead(QtCore.QObject):
     def get_serial_data(self, plt_number):
         self.times[plt_number].append(time.time() - self.init_time)
         self.private_data = copy.deepcopy(
-            self.raw_data)  # so that the 5 values in our plots will be synchronized to the same sample time
+            self.raw_data)  # so that the 4 values in our plots will be synchronized to the same sample time
         data = self.private_data[(plt_number * self.data_num_bytes):(self.data_num_bytes +
                                                                      plt_number * self.data_num_bytes)]
         value,  = struct.unpack(self.data_type, data)
