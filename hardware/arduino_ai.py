@@ -66,7 +66,7 @@ class SerialRead(QtCore.QObject):
         data = self.private_data[(plt_number * self.data_num_bytes):(self.data_num_bytes +
                                                                      plt_number * self.data_num_bytes)]
         value,  = struct.unpack(self.data_type, data)
-        if plt_number == 0:
+        if plt_number == 2:
             value = conversions.voltage_to_temperature(conversions.digital_to_voltage(value, bits=15,
                                                                                       voltage_range=6.144))
         else:

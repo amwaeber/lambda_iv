@@ -25,20 +25,71 @@ class MainWidget(QtWidgets.QWidget):
         self.info_data = defaults['info']  # update as references to info_tab
         self.exp_count = 0
 
-        vbox_total = QtWidgets.QVBoxLayout()
-        hbox_top = QtWidgets.QHBoxLayout()
-        self.iv_group_box = QtWidgets.QGroupBox('I-V Curve')
-        vbox_iv = QtWidgets.QVBoxLayout()
+        hbox_total = QtWidgets.QHBoxLayout()
+
+        vbox_left = QtWidgets.QVBoxLayout()
+
+        # I-V Curve
         self.iv_graph = pg.PlotWidget()
         self.iv_graph.plotItem.getAxis('left').setPen(colors.black_pen)
         self.iv_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.iv_graph.setTitle('I-V Curve')
-        self.iv_graph.setLabel('left', 'Current (A)')
+        self.iv_graph.setTitle('Photocurrent (A)')
         self.iv_graph.setLabel('bottom', 'Voltage (V)')
         self.iv_data_line = self.iv_graph.plot(pen=colors.blue_pen)
-        vbox_iv.addWidget(self.iv_graph)
-        self.iv_group_box.setLayout(vbox_iv)
-        hbox_top.addWidget(self.iv_group_box, 5)
+        vbox_left.addWidget(self.iv_graph, 2)
+
+        # Isc
+        self.isc_graph = pg.PlotWidget()
+        self.isc_graph.plotItem.getAxis('left').setPen(colors.black_pen)
+        self.isc_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
+        self.isc_graph.setTitle('Short-Circuit Current (A)')
+        self.isc_graph.setLabel('bottom', 'Scan #')
+        self.isc_data_line = self.isc_graph.plot(pen=colors.blue_pen)
+        vbox_left.addWidget(self.isc_graph, 2)
+
+        # Temperature
+        self.temp_graph = pg.PlotWidget()
+        self.temp_graph.plotItem.getAxis('left').setPen(colors.black_pen)
+        self.temp_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
+        self.temp_graph.setTitle('Temperature (C)')
+        self.temp_graph.setLabel('bottom', 'Time (s)')
+        self.temp_data_line = self.temp_graph.plot(pen=colors.blue_pen)
+        vbox_left.addWidget(self.temp_graph, 2)
+        hbox_total.addLayout(vbox_left, 3)
+
+        vbox_center = QtWidgets.QVBoxLayout()
+
+        # Maximum Power Point
+        self.pmax_graph = pg.PlotWidget()
+        self.pmax_graph.plotItem.getAxis('left').setPen(colors.black_pen)
+        self.pmax_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
+        self.pmax_graph.setTitle('Maximum Power (W)')
+        self.pmax_graph.setLabel('bottom', 'Scan #')
+        self.pmax_data_line = self.pmax_graph.plot(pen=colors.blue_pen)
+        vbox_center.addWidget(self.pmax_graph, 2)
+
+        # Voc
+        self.voc_graph = pg.PlotWidget()
+        self.voc_graph.plotItem.getAxis('left').setPen(colors.black_pen)
+        self.voc_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
+        self.voc_graph.setTitle('Open-Circuit Voltage (V)')
+        self.voc_graph.setLabel('bottom', 'Scan #')
+        self.voc_data_line = self.voc_graph.plot(pen=colors.blue_pen)
+        vbox_center.addWidget(self.voc_graph, 2)
+
+        # Irradiance
+        self.irrad_graph = pg.PlotWidget()
+        self.irrad_graph.plotItem.getAxis('left').setPen(colors.black_pen)
+        self.irrad_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
+        self.irrad_graph.setTitle('Irradiance (W/m2)')
+        self.irrad_graph.setLabel('bottom', 'Time (s)')
+        self.power_data_line1 = self.irrad_graph.plot(pen=colors.blue_pen)
+        self.power_data_line2 = self.irrad_graph.plot(pen=colors.red_pen)
+        self.power_data_line3 = self.irrad_graph.plot(pen=colors.green_pen)
+        vbox_center.addWidget(self.irrad_graph, 2)
+        hbox_total.addLayout(vbox_center, 3)
+
+        vbox_right = QtWidgets.QVBoxLayout()
 
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.setTabShape(QtWidgets.QTabWidget.Triangular)
@@ -61,48 +112,16 @@ class MainWidget(QtWidgets.QWidget):
         self.info_tab = InfoWidget(self)
         self.tabs.addTab(self.info_tab, 'Info')
 
-        hbox_top.addWidget(self.tabs, 3)
-        vbox_total.addLayout(hbox_top, 4)
-
-        hbox_bottom = QtWidgets.QHBoxLayout()
-        hbox_bottom_left = QtWidgets.QHBoxLayout()
-        self.sens_plot_group_box = QtWidgets.QGroupBox('Sensor Plots')
-        hbox_sens_plot = QtWidgets.QHBoxLayout()
-        self.sensor_graph = pg.PlotWidget()
-        self.sensor_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.sensor_graph.plotItem.getAxis('right').setPen(colors.black_pen)
-        self.sensor_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.sensor_graph.setTitle('Sensor Readout')
-        # create a new ViewBox, link the right axis to its coordinate system
-        self.sensor_viewbox = pg.ViewBox()
-        self.sensor_graph.scene().addItem(self.sensor_viewbox)
-        self.sensor_graph.getAxis('right').linkToView(self.sensor_viewbox)
-        self.sensor_viewbox.setXLink(self.sensor_graph)
-        self.sensor_graph.setLabel('left', 'Temperature (C)')
-        self.sensor_graph.setLabel('right', 'Irradiance (W/m2)')
-        self.sensor_graph.setLabel('bottom', 'Time (s)')
-        self.temp_data_line = self.sensor_graph.plot(pen=colors.blue_pen)
-        self.power_data_line1 = pg.PlotCurveItem(pen=colors.red_pen)
-        self.power_data_line2 = pg.PlotCurveItem(pen=colors.green_pen)
-        self.power_data_line3 = pg.PlotCurveItem(pen=colors.orange_pen)
-        self.sensor_viewbox.addItem(self.power_data_line1)
-        self.sensor_viewbox.addItem(self.power_data_line2)
-        self.sensor_viewbox.addItem(self.power_data_line3)
-
-        hbox_sens_plot.addWidget(self.sensor_graph)
-        self.sens_plot_group_box.setLayout(hbox_sens_plot)
-        hbox_bottom_left.addWidget(self.sens_plot_group_box)
-        hbox_bottom_left.addStretch(1)
-        hbox_bottom.addLayout(hbox_bottom_left, 5)
+        vbox_right.addWidget(self.tabs, 4)
 
         self.log_group_box = QtWidgets.QGroupBox('Log')
         grid_log = QtWidgets.QGridLayout()
         self.log_edit = QtWidgets.QTextEdit("Ready to measure...\n", self)
         grid_log.addWidget(self.log_edit, 0, 0)
         self.log_group_box.setLayout(grid_log)
-        hbox_bottom.addWidget(self.log_group_box, 3)
-        vbox_total.addLayout(hbox_bottom, 2)
-        self.setLayout(vbox_total)
+        vbox_right.addWidget(self.log_group_box, 2)
+        hbox_total.addLayout(vbox_right, 3)
+        self.setLayout(hbox_total)
 
         self.data_sensor = np.zeros((int(self.sensor_tab.ais_edit.text()),
                                      int(self.cell_tab.nstep_edit.text())))
@@ -127,7 +146,7 @@ class MainWidget(QtWidgets.QWidget):
     def update_sensor(self):
         if not self.sensor_mes:
             return
-        time_val, [tval, d1val, d2val, d3val] = self.sensor_mes.get_sensor_latest()
+        time_val, [d1val, d2val, tval, d3val] = self.sensor_mes.get_sensor_latest()
         self.sensor_tab.temperature_edit.setText("%.2f" % tval)
         self.sensor_tab.diode1_edit.setText("%.1f" % d1val)
         self.sensor_tab.diode2_edit.setText("%.1f" % d2val)
@@ -208,6 +227,10 @@ class MainWidget(QtWidgets.QWidget):
         self.power_data_line1.setData([], [])
         self.power_data_line2.setData([], [])
         self.power_data_line3.setData([], [])
+
+    def update_sens_views(self):
+        self.sensor_p2.setGeometry(self.sensor_p1.vb.sceneBoundingRect())
+        self.sensor_p2.linkedViewChanged(self.sensor_p1.vb, self.sensor_p2.XAxis)
 
     def iv_register(self, mes):
         self.iv_mes = mes
@@ -313,9 +336,9 @@ class MainWidget(QtWidgets.QWidget):
     @QtCore.pyqtSlot(int)
     def save(self, repetition):
         self.data_iv = self.iv_mes.get_keithley_data()
-        self.data_iv['Temperature (C)'] = self.data_sensor[0]
-        self.data_iv['Irradiance 1 (W/m2)'] = self.data_sensor[1]
-        self.data_iv['Irradiance 2 (W/m2)'] = self.data_sensor[2]
+        self.data_iv['Temperature (C)'] = self.data_sensor[2]
+        self.data_iv['Irradiance 1 (W/m2)'] = self.data_sensor[0]
+        self.data_iv['Irradiance 2 (W/m2)'] = self.data_sensor[1]
         self.data_iv['Irradiance 3 (W/m2)'] = self.data_sensor[3]
         self.data_iv.to_csv(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(repetition)))
         self.save_info(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.dat' % str(repetition)),

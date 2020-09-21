@@ -1,3 +1,4 @@
+import numpy as np
 from PyQt5 import QtCore
 import pyqtgraph as pg
 import threading
@@ -59,23 +60,23 @@ class ArduinoSensor(QtCore.QObject):
     def log_pipeline(self, string):
         self.to_log.emit(string)
 
-    def line_plot(self, target_line=None, channel=None):
-        if target_line is None:
-            target_line = pg.PlotCurveItem()
+    def line_plot(self, target_data=None, channel=None):
+        if target_data is None:
+            target_data = pg.PlotCurveItem()
         if self.ser is None:
             xval, yval = [], []
         elif channel == 'temp':
-            xval, yval, _ = self.ser.get_serial_data(0)
+            xval, yval, _ = self.ser.get_serial_data(2)
             yval = yval * 100
         elif channel == 'power1':
-            xval, yval, _ = self.ser.get_serial_data(1)
+            xval, yval, _ = self.ser.get_serial_data(0)
         elif channel == 'power2':
-            xval, yval, _ = self.ser.get_serial_data(2)
+            xval, yval, _ = self.ser.get_serial_data(1)
         elif channel == 'power3':
             xval, yval, _ = self.ser.get_serial_data(3)
         else:
             xval, yval = [], []
-        target_line.setData(xval, yval)
+        target_data.setData(np.array(xval), np.array(yval))
 
     def get_sensor_latest(self):
         if not self.port == 'dummy':
