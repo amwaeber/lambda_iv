@@ -10,6 +10,7 @@ import hardware.keithley as keithley
 import hardware.sensor as sensor
 from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
+from user_interfaces.plots import PlotsWidget
 from user_interfaces.sensor_tab import SensorWidget
 import utility.colors as colors
 from utility.config import defaults
@@ -33,67 +34,8 @@ class MainWidget(QtWidgets.QWidget):
 
         hbox_total = QtWidgets.QHBoxLayout()
 
-        vbox_left = QtWidgets.QVBoxLayout()
-
-        # I-V Curve
-        self.iv_graph = pg.PlotWidget()
-        self.iv_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.iv_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.iv_graph.setTitle('Photocurrent (mA)')
-        self.iv_graph.setLabel('bottom', 'Voltage (V)')
-        self.iv_data_line = self.iv_graph.plot(pen=colors.blue_pen)
-        vbox_left.addWidget(self.iv_graph, 2)
-
-        # Isc
-        self.isc_graph = pg.PlotWidget()
-        self.isc_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.isc_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.isc_graph.setTitle('Short-Circuit Current (A)')
-        self.isc_graph.setLabel('bottom', 'Scan #')
-        self.isc_data_line = self.isc_graph.plot(pen=colors.red_pen)
-        vbox_left.addWidget(self.isc_graph, 2)
-
-        # Temperature
-        self.temp_graph = pg.PlotWidget()
-        self.temp_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.temp_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.temp_graph.setTitle('Temperature (C)')
-        self.temp_graph.setLabel('bottom', 'Time (s)')
-        self.temp_data_line = self.temp_graph.plot(pen=colors.lblue_pen)
-        vbox_left.addWidget(self.temp_graph, 2)
-        hbox_total.addLayout(vbox_left, 3)
-
-        vbox_center = QtWidgets.QVBoxLayout()
-
-        # Maximum Power Point
-        self.pmax_graph = pg.PlotWidget()
-        self.pmax_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.pmax_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.pmax_graph.setTitle('Maximum Power (mW)')
-        self.pmax_graph.setLabel('bottom', 'Scan #')
-        self.pmax_data_line = self.pmax_graph.plot(pen=colors.orange_pen)
-        vbox_center.addWidget(self.pmax_graph, 2)
-
-        # Voc
-        self.voc_graph = pg.PlotWidget()
-        self.voc_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.voc_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.voc_graph.setTitle('Open-Circuit Voltage (mV)')
-        self.voc_graph.setLabel('bottom', 'Scan #')
-        self.voc_data_line = self.voc_graph.plot(pen=colors.green_pen)
-        vbox_center.addWidget(self.voc_graph, 2)
-
-        # Irradiance
-        self.irrad_graph = pg.PlotWidget()
-        self.irrad_graph.plotItem.getAxis('left').setPen(colors.black_pen)
-        self.irrad_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.irrad_graph.setTitle('Irradiance (W/m2)')
-        self.irrad_graph.setLabel('bottom', 'Time (s)')
-        self.power_data_line1 = self.irrad_graph.plot(pen=colors.violet_pen)
-        self.power_data_line2 = self.irrad_graph.plot(pen=colors.lred_pen)
-        self.power_data_line3 = self.irrad_graph.plot(pen=colors.lgreen_pen)
-        vbox_center.addWidget(self.irrad_graph, 2)
-        hbox_total.addLayout(vbox_center, 3)
+        self.plot_widget = PlotsWidget()
+        hbox_total.addWidget(self.plot_widget, 6)
 
         vbox_right = QtWidgets.QVBoxLayout()
 
@@ -102,7 +44,7 @@ class MainWidget(QtWidgets.QWidget):
         self.tabs.setTabPosition(QtWidgets.QTabWidget.South)
 
         self.cell_tab = CellWidget(self)
-        self.cell_tab.clipboard_button.clicked.connect(lambda: self.clipboard('iv'))
+        self.cell_tab.clipboard_button.clicked.connect(self.clipboard)
         self.cell_tab.start_button.clicked.connect(self.start)
         self.cell_tab.to_log.connect(self.logger)
         self.tabs.addTab(self.cell_tab, 'PV Cell')
@@ -110,7 +52,6 @@ class MainWidget(QtWidgets.QWidget):
         self.sensor_tab = SensorWidget(self)
         self.sensor_tab.start_sensor.connect(self.start_sensor)
         self.sensor_tab.stop_sensor.connect(self.stop_sensor)
-        self.sensor_tab.clipboard_button.clicked.connect(lambda: self.clipboard('sensor'))
         self.sensor_tab.start_button.clicked.connect(self.plot_sensors)
         self.sensor_tab.to_log.connect(self.logger)
         self.tabs.addTab(self.sensor_tab, 'Sensors')
@@ -158,10 +99,10 @@ class MainWidget(QtWidgets.QWidget):
         self.sensor_tab.diode3_edit.setText("%.1f" % d3val)
         if not(self.sensor_tab.sensor_plot_fixed_time.isChecked()) and not self.sensor_mes.port == 'dummy':
             if self.sensor_tab.start_button.isChecked():
-                self.sensor_mes.line_plot(self.temp_data_line, channel='temp')
-                self.sensor_mes.line_plot(self.power_data_line1, channel='power1')
-                self.sensor_mes.line_plot(self.power_data_line2, channel='power2')
-                self.sensor_mes.line_plot(self.power_data_line3, channel='power3')
+                self.sensor_mes.line_plot(self.plot_widget.temp_data_line, channel='temp')
+                self.sensor_mes.line_plot(self.plot_widget.power_data_line1, channel='power1')
+                self.sensor_mes.line_plot(self.plot_widget.power_data_line2, channel='power2')
+                self.sensor_mes.line_plot(self.plot_widget.power_data_line3, channel='power3')
         elif all([self.sensor_tab.sensor_plot_fixed_time.isChecked(),
                   self.sensor_tab.start_button.isChecked(),
                   not self.sensor_mes.port == 'dummy']):
@@ -188,10 +129,14 @@ class MainWidget(QtWidgets.QWidget):
                     self.sensor_time_data_averaged[0] = [i - self.sensor_time_data_averaged[0][0]
                                                          for i in self.sensor_time_data_averaged[0]]
             if self.sensor_tab.start_button.isChecked():
-                self.temp_data_line.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[1])
-                self.power_data_line1.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[2])
-                self.power_data_line2.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[3])
-                self.power_data_line3.setData(self.sensor_time_data_averaged[0], self.sensor_time_data_averaged[4])
+                self.plot_widget.temp_data_line.setData(self.sensor_time_data_averaged[0],
+                                                        self.sensor_time_data_averaged[1])
+                self.plot_widget.power_data_line1.setData(self.sensor_time_data_averaged[0],
+                                                          self.sensor_time_data_averaged[2])
+                self.plot_widget.power_data_line2.setData(self.sensor_time_data_averaged[0],
+                                                          self.sensor_time_data_averaged[3])
+                self.plot_widget.power_data_line3.setData(self.sensor_time_data_averaged[0],
+                                                          self.sensor_time_data_averaged[4])
 
     @QtCore.pyqtSlot()
     def start_sensor(self):
@@ -228,10 +173,10 @@ class MainWidget(QtWidgets.QWidget):
             self.sensor_tab.start_button.setText("Stop Plot")
         else:
             self.sensor_tab.start_button.setText("Plot Sensors")
-        self.temp_data_line.setData([], [])
-        self.power_data_line1.setData([], [])
-        self.power_data_line2.setData([], [])
-        self.power_data_line3.setData([], [])
+        self.plot_widget.temp_data_line.setData([], [])
+        self.plot_widget.power_data_line1.setData([], [])
+        self.plot_widget.power_data_line2.setData([], [])
+        self.plot_widget.power_data_line3.setData([], [])
 
     def update_sens_views(self):
         self.sensor_p2.setGeometry(self.sensor_p1.vb.sceneBoundingRect())
@@ -297,7 +242,7 @@ class MainWidget(QtWidgets.QWidget):
             return
         _, sensor_latest = self.sensor_mes.get_sensor_latest()
         timestamp = time.time()
-        self.iv_mes.line_plot(self.iv_data_line)
+        self.iv_mes.line_plot(self.plot_widget.iv_data_line)
         data_iv = self.iv_mes.get_keithley_data()
         fit_data_iv = fit_iv(data_iv)
         self.cell_tab.update_readout(fit_data_iv)
@@ -322,9 +267,9 @@ class MainWidget(QtWidgets.QWidget):
         self.isc.append(isc)
         self.voc.append(voc)
         self.pmax.append(pmax)
-        self.isc_data_line.setData(self.ns, self.isc)
-        self.voc_data_line.setData(self.ns, self.voc)
-        self.pmax_data_line.setData(self.ns, self.pmax)
+        self.plot_widget.isc_data_line.setData(self.ns, self.isc)
+        self.plot_widget.voc_data_line.setData(self.ns, self.voc)
+        self.plot_widget.pmax_data_line.setData(self.ns, self.pmax)
 
     @staticmethod
     def save_string(*args):
@@ -362,14 +307,9 @@ class MainWidget(QtWidgets.QWidget):
         else:
             self.exp_count = 0
 
-    @QtCore.pyqtSlot(str)
-    def clipboard(self, plot):
-        if plot == 'iv':
-            pixmap = QtWidgets.QWidget.grab(self.iv_graph)
-        elif plot == 'sensor':
-            pixmap = QtWidgets.QWidget.grab(self.sensor_graph)
-        else:
-            return
+    @QtCore.pyqtSlot()
+    def clipboard(self):
+        pixmap = QtWidgets.QWidget.grab(self.plot_widget)
         QtWidgets.QApplication.clipboard().setPixmap(pixmap)
 
     def check_save_path(self):

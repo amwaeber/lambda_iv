@@ -42,10 +42,6 @@ class SensorWidget(QtWidgets.QWidget):
         grid_mode.addWidget(QtWidgets.QLabel("Fixed Time Plot", self), 0, 2)
         hbox_mode.addLayout(grid_mode)
         hbox_mode.addStretch(-1)
-        self.clipboard_button = QtWidgets.QPushButton(
-            QtGui.QIcon(os.path.join(paths['icons'], 'clipboard.png')), '')
-        self.clipboard_button.setToolTip('Save plot to clipboard')
-        hbox_mode.addWidget(self.clipboard_button)
         vbox_total.addLayout(hbox_mode)
 
         hbox_ports = QtWidgets.QHBoxLayout()
