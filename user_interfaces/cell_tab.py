@@ -48,25 +48,25 @@ class CellWidget(QtWidgets.QWidget):
         grid_source.addWidget(self.vprot_edit, 1, 5)
 
         grid_source.addWidget(QtWidgets.QLabel("Trigger Delay (s)", self), 3, 0)
-        self.delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][6], self)
-        self.delay_edit.setFixedWidth(60)
-        grid_source.addWidget(self.delay_edit, 3, 1)
+        self.trigger_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][6], self)
+        self.trigger_delay_edit.setFixedWidth(60)
+        grid_source.addWidget(self.trigger_delay_edit, 3, 1)
         grid_source.addWidget(QtWidgets.QLabel("Traces", self), 2, 2)
-        self.reps_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][7], self)
-        self.reps_edit.setFixedWidth(60)
-        grid_source.addWidget(self.reps_edit, 2, 3)
+        self.traces_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][7], self)
+        self.traces_edit.setFixedWidth(60)
+        grid_source.addWidget(self.traces_edit, 2, 3)
         grid_source.addWidget(QtWidgets.QLabel("Trace Pause (s)", self), 3, 2)
-        self.rep_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][8], self)
-        self.rep_delay_edit.setFixedWidth(60)
-        grid_source.addWidget(self.rep_delay_edit, 3, 3)
+        self.trace_pause_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][8], self)
+        self.trace_pause_edit.setFixedWidth(60)
+        grid_source.addWidget(self.trace_pause_edit, 3, 3)
         grid_source.addWidget(QtWidgets.QLabel("Cycles", self), 2, 4)
-        self.exps_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][9], self)
-        self.exps_edit.setFixedWidth(60)
-        grid_source.addWidget(self.exps_edit, 2, 5)
+        self.cycles_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][9], self)
+        self.cycles_edit.setFixedWidth(60)
+        grid_source.addWidget(self.cycles_edit, 2, 5)
         grid_source.addWidget(QtWidgets.QLabel("Cycle Pause (min)", self), 3, 4)
-        self.exp_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][10], self)
-        self.exp_delay_edit.setFixedWidth(60)
-        grid_source.addWidget(self.exp_delay_edit, 3, 5)
+        self.cycle_pause_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][10], self)
+        self.cycle_pause_edit.setFixedWidth(60)
+        grid_source.addWidget(self.cycle_pause_edit, 3, 5)
         vbox_total.addLayout(grid_source)
 
         hbox_terminals = QtWidgets.QHBoxLayout()
@@ -186,15 +186,15 @@ class CellWidget(QtWidgets.QWidget):
     def check_iv_parameters(self):
         try:
             int(self.nstep_edit.text())
-            int(self.reps_edit.text())
-            int(self.exps_edit.text())
+            int(self.traces_edit.text())
+            int(self.cycles_edit.text())
             float(self.start_edit.text())
             float(self.end_edit.text())
             float(self.ilimit_edit.text())
             int(self.vprot_edit.text())
-            float(self.delay_edit.text())
-            float(self.rep_delay_edit.text())
-            float(self.exp_delay_edit.text())
+            float(self.trigger_delay_edit.text())
+            float(self.trace_pause_edit.text())
+            float(self.cycle_pause_edit.text())
         except (ZeroDivisionError, ValueError):
             self.to_log.emit('<span style=\" color:#ff0000;\" >Some parameters are not in the right format. '
                              'Please check before starting measurement.</span>')
@@ -202,15 +202,15 @@ class CellWidget(QtWidgets.QWidget):
         if any([float(self.end_edit.text()) > 0.75,
                 float(self.start_edit.text()) < -0.15,
                 float(self.start_edit.text()) > float(self.end_edit.text()),
-                float(self.delay_edit.text()) < 0.0,
-                float(self.rep_delay_edit.text()) < 5.0,
-                float(self.exp_delay_edit.text()) < 0.5,
+                float(self.trigger_delay_edit.text()) < 0.0,
+                float(self.trace_pause_edit.text()) < 5.0,
+                float(self.cycle_pause_edit.text()) < 0.5,
                 float(self.ilimit_edit.text()) > 0.5,
                 float(self.ilimit_edit.text()) <= 0.,
                 int(self.vprot_edit.text()) > 200,
                 int(self.vprot_edit.text()) < 5,
-                int(self.reps_edit.text()) < 1,
-                int(self.exps_edit.text()) < 1
+                int(self.traces_edit.text()) < 1,
+                int(self.cycles_edit.text()) < 1
                 ]):
             self.to_log.emit('<span style=\" color:#ff0000;\" >Some parameters are out of bounds. '
                              'Please check before starting measurement.</span>')
@@ -220,8 +220,8 @@ class CellWidget(QtWidgets.QWidget):
 
     def save_defaults(self):
         defaults['cell'] = [self.start_edit.text(), self.end_edit.text(), self.step_edit.text(), self.nstep_edit.text(),
-                            self.ilimit_edit.text(), self.vprot_edit.text(), self.delay_edit.text(),
-                            self.reps_edit.text(), self.rep_delay_edit.text(), self.exps_edit.text(),
-                            self.exp_delay_edit.text(), self.remote_sense_btn.isChecked(),
+                            self.ilimit_edit.text(), self.vprot_edit.text(), self.trigger_delay_edit.text(),
+                            self.traces_edit.text(), self.trace_pause_edit.text(), self.cycles_edit.text(),
+                            self.cycle_pause_edit.text(), self.remote_sense_btn.isChecked(),
                             self.rear_terminal_btn.isChecked()]
         write_config()

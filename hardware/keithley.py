@@ -8,21 +8,21 @@ import time
 
 
 class Keithley(QtCore.QObject):
-    trace_finished = QtCore.pyqtSignal(int)
+    trace_finished = QtCore.pyqtSignal(int, int)
     restart_sensor = QtCore.pyqtSignal()
     to_log = QtCore.pyqtSignal(str)
-    experiment_finished = QtCore.pyqtSignal()
 
-    def __init__(self, gpib_port='GPIB::24::INSTR', n_data_points=100, averages=5, repetitions=1, repetition_delay=5.0,
-                 delay=0.0, experiment_delay=1.0, min_voltage=-0.01, max_voltage=0.7, compliance_current=0.5,
-                 voltage_protection=20, remote_sense=False, use_rear_terminals=False):
+    def __init__(self, gpib_port='GPIB::24::INSTR', n_data_points=100, traces=1, trace_pause=5.0,
+                 trigger_delay=0.0, cycles=1, cycle_pause=1.0, min_voltage=-0.01, max_voltage=0.7,
+                 compliance_current=0.5, voltage_protection=20, remote_sense=False, use_rear_terminals=False):
         super(Keithley, self).__init__()
         self.gpib_port = gpib_port
         self.n_data_points = n_data_points
-        self.traces = repetitions
-        self.repetition_delay = repetition_delay
-        self.delay = delay
-        self.experiment_delay = experiment_delay
+        self.traces = traces
+        self.trace_pause = trace_pause
+        self.trigger_delay = trigger_delay
+        self.cycles = cycles
+        self.cycle_pause = cycle_pause
         self.max_voltage = max_voltage
         self.min_voltage = min_voltage
         self.compliance_current = compliance_current
@@ -39,16 +39,18 @@ class Keithley(QtCore.QObject):
 
         self.rm = visa.ResourceManager()
 
-    def config_keithley(self, **kwargs):
-        self.to_log.emit('<span style=\" color:#000000;\" >Trying to connect to: ' + str(self.gpib_port) + '.</span>')
+    def config_keithley(self):
+        self.to_log.emit('<span style=\" color:#000000;\" >Trying to connect to Keithley at ' + str(self.gpib_port) +
+                         '.</span>')
         if str(self.gpib_port) == 'dummy':
             return
         try:
             self.sourcemeter = self.rm.open_resource(str(self.gpib_port))
-            self.to_log.emit('<span style=\" color:#32cd32;\" >Connected to ' + str(self.gpib_port) + '.</span>')
-        except visa.errors.VisaIOError:
-            self.to_log.emit('<span style=\" color:#ff0000;\" >Failed to connect with ' + str(self.gpib_port) +
+            self.to_log.emit('<span style=\" color:#32cd32;\" >Connected to Keithley at ' + str(self.gpib_port) +
                              '.</span>')
+        except visa.errors.VisaIOError:
+            self.to_log.emit('<span style=\" color:#ff0000;\" >Failed to connect to Keithley at ' +
+                             str(self.gpib_port) + '.</span>')
             self.gpib_port = 'dummy'
             return
         self.sourcemeter.write("*RST")
@@ -61,7 +63,7 @@ class Keithley(QtCore.QObject):
         self.sourcemeter.write(":SOUR:VOLT:MODE SWE")
         self.sourcemeter.write(f"TRIG:COUN {self.n_data_points}")
         self.sourcemeter.write(":ARM:COUNT 1")
-        self.sourcemeter.write(f":TRIG:DEL {self.delay}")
+        self.sourcemeter.write(f":TRIG:DEL {self.trigger_delay}")
         self.sourcemeter.write(":SOUR:DEL 0.0")
         self.sourcemeter.write(f":SOUR:VOLT:RANGE {self.voltage_protection}")
         self.sourcemeter.write(f":SENSE:CURR:PROT {self.compliance_current}")
@@ -98,37 +100,41 @@ class Keithley(QtCore.QObject):
         return data
 
     def background_thread(self):
-        time.sleep(self.experiment_delay)  # pause between experiments
-        self.restart_sensor.emit()
-        time.sleep(5.0)  # give time for sensor connection to re-establish itself
         self.config_keithley()
         while self.is_run:
-            for trace in range(self.traces):
-                if not self.is_run:
-                    self.to_log.emit('<span style=\" color:#ff0000;\" >Scan aborted.</span>')
-                    return
-                if str(self.gpib_port) == 'dummy':
-                    for dp in range(self.n_data_points):
-                        time.sleep(self.delay)
-                        self.times[dp] = time.time()
-                else:
-                    self.sourcemeter.write(":OUTPUT ON")
-                    self.sourcemeter.write(":TRAC:FEED:CONT NEXT")
-                    self.sourcemeter.write(":INIT")
-                    time.sleep(self.n_data_points / 100)  # npoints * 10ms
-                    self.sourcemeter.write(":OUTPUT OFF")
-                    data = self.sourcemeter.query_ascii_values("TRAC:DATA?")
-                    self.voltages = data[0::5]
-                    self.currents = [-dp for dp in data[1::5]]
-                    self.times = data[3::5]  # add time.time() for timestamp
-                self.trace_finished.emit(trace)  # couple save.emit(rep) into it
-                self.to_log.emit('<span style=\" color:#1e90ff;\" >Finished curve #%s</span>' % str(trace + 1))
-                if trace < self.traces - 1:
-                    time.sleep(self.repetition_delay)
+            for cycle in range(self.cycles):
+                self.restart_sensor.emit()
+                time.sleep(5.0)  # give time for sensor connection to re-establish itself
+                for trace in range(self.traces):
+                    if not self.is_run:
+                        self.to_log.emit('<span style=\" color:#ff0000;\" >Scan aborted.</span>')
+                        return
+                    if str(self.gpib_port) == 'dummy':
+                        for dp in range(self.n_data_points):
+                            time.sleep(self.trigger_delay)
+                            self.times[dp] = time.time()
+                    else:
+                        self.sourcemeter.write(":OUTPUT ON")
+                        self.sourcemeter.write(":TRAC:FEED:CONT NEXT")
+                        self.sourcemeter.write(":INIT")
+                        time.sleep(self.n_data_points / 100)
+                        self.sourcemeter.write(":OUTPUT OFF")
+                        data = self.sourcemeter.query_ascii_values("TRAC:DATA?")
+                        self.voltages = data[0::5]
+                        self.currents = [-dp for dp in data[1::5]]
+                        self.times = data[3::5]
+                    self.trace_finished.emit(trace, cycle)
+                    self.to_log.emit('<span style=\" color:#1e90ff;\" >Finished trace %s of cycle %s.</span>'
+                                     % (str(trace + 1), str(cycle + 1)))
+                    if trace < self.traces - 1:
+                        time.sleep(self.trace_pause)
+                if cycle < self.cycles - 1:
+                    self.to_log.emit('<span style=\" color:#ff0000;\" >Next Experiment lined up in %d min.</span>' %
+                                     int(self.cycle_pause / 60.))
+                    time.sleep(self.cycle_pause)
                 else:
                     self.to_log.emit('<span style=\" color:#32cd32;\" >Finished IV scan.</span>')
             self.is_run = False
-        self.experiment_finished.emit()
 
     def close(self):
         self.is_run = False

@@ -1,5 +1,4 @@
 import collections
-import copy
 from PyQt5 import QtCore
 import serial
 import struct
@@ -25,10 +24,6 @@ class SerialRead(QtCore.QObject):
         self.data = [collections.deque(maxlen=self.n_data_points) for _ in range(self.n_ai)]
         self.times = [collections.deque(maxlen=self.n_data_points) for _ in range(self.n_ai)]
         self.init_time = time.time()
-        self.private_data = None
-        # for i in range(self.n_ai):  # give an array for each type of data and store them in a list
-        #     self.data.append(collections.deque([0] * self.n_data_points, maxlen=self.n_data_points))
-        #     self.times.append(collections.deque([0.1] * self.n_data_points, maxlen=self.n_data_points))
         self.is_run = True
         self.is_receiving = False
         self.thread = None
@@ -37,16 +32,16 @@ class SerialRead(QtCore.QObject):
     def connect(self):
         if str(self.port) == 'dummy':
             return
-        self.to_log.emit('<span style=\" color:#000000;\" >Trying to connect to: ' + str(self.port) + ' at '
-                         + str(self.baud) + ' BAUD.</span>')
+        self.to_log.emit('<span style=\" color:#000000;\" >Trying to connect to Arduino at ' + str(self.port) +
+                         '.</span>')
         try:
             self.serialConnection = serial.Serial(self.port, self.baud, timeout=4)
-            self.to_log.emit('<span style=\" color:#32cd32;\" >Connected to ' + str(self.port) + ' at ' +
-                             str(self.baud) + ' BAUD.</span>')
+            self.to_log.emit('<span style=\" color:#32cd32;\" >Connected to Arduino at ' + str(self.port) +
+                             '.</span>')
         except serial.serialutil.SerialException:
             self.port = 'dummy'
-            self.to_log.emit('<span style=\" color:#ff0000;\" >Failed to connect with ' + str(self.port) +
-                             ' at ' + str(self.baud) + ' BAUD.</span>')
+            self.to_log.emit('<span style=\" color:#ff0000;\" >Failed to connect to Arduino at ' + str(self.port) +
+                             '.</span>')
 
     def read_serial_start(self):
         if self.thread is None:
@@ -58,10 +53,8 @@ class SerialRead(QtCore.QObject):
 
     def get_serial_data(self, plt_number):
         self.times[plt_number].append(time.time() - self.init_time)
-        self.private_data = copy.deepcopy(
-            self.raw_data)  # so that the 4 values in our plots will be synchronized to the same sample time
-        data = self.private_data[(plt_number * self.data_num_bytes):(self.data_num_bytes +
-                                                                     plt_number * self.data_num_bytes)]
+        data = self.raw_data[(plt_number * self.data_num_bytes):(self.data_num_bytes +
+                                                                 plt_number * self.data_num_bytes)]
         value,  = struct.unpack(self.data_type, data)
         if plt_number == 2:
             value = conversions.voltage_to_temperature(conversions.digital_to_voltage(value, bits=15,

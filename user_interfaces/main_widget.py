@@ -24,7 +24,6 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
         self.info_data = defaults['info']  # update as references to info_tab
-        self.exp_count = 0
 
         self.ns = collections.deque(maxlen=25)
         self.isc = collections.deque(maxlen=25)
@@ -178,7 +177,6 @@ class MainWidget(QtWidgets.QWidget):
         self.iv_mes.trace_finished.connect(self.trace_finished)
         self.iv_mes.restart_sensor.connect(self.start_sensor)
         self.iv_mes.to_log.connect(self.logger)
-        self.iv_mes.experiment_finished.connect(self.experiment_loop)
 
     def start(self):
         # Stop measurement if measurement is running
@@ -198,15 +196,13 @@ class MainWidget(QtWidgets.QWidget):
             return
         self.cell_tab.start_button.setText("Stop IV")
         self.info_tab.save_defaults()
-        if self.iv_mes:
-            self.iv_mes.close()
-        experiment_delay = 1 if self.exp_count == 0 else float(self.cell_tab.exp_delay_edit.text()) * 60
         self.iv_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
                                         n_data_points=int(self.cell_tab.nstep_edit.text()),
-                                        repetitions=int(self.cell_tab.reps_edit.text()),
-                                        repetition_delay=float(self.cell_tab.rep_delay_edit.text()),
-                                        delay=float(self.cell_tab.delay_edit.text()),
-                                        experiment_delay=experiment_delay,
+                                        trigger_delay=float(self.cell_tab.trigger_delay_edit.text()),
+                                        traces=int(self.cell_tab.traces_edit.text()),
+                                        trace_pause=float(self.cell_tab.trace_pause_edit.text()),
+                                        cycles=int(self.cell_tab.cycles_edit.text()),
+                                        cycle_pause=float(self.cell_tab.cycle_pause_edit.text()) * 60,
                                         min_voltage=float(self.cell_tab.start_edit.text()),
                                         max_voltage=float(self.cell_tab.end_edit.text()),
                                         compliance_current=float(self.cell_tab.ilimit_edit.text()),
@@ -216,18 +212,10 @@ class MainWidget(QtWidgets.QWidget):
                                         )
         self.iv_register(self.iv_mes)
         self.check_save_path()
-        if self.exp_count == 0 and int(self.cell_tab.exps_edit.text()) > 1:  # count file names from ' 0' if multiple
-            os.rmdir(self.cell_tab.save_dir)
-            self.cell_tab.save_dir += ' 0'
-            defaults['info'][0] += ' 0'
-            self.cell_tab.folder_edit.setText(self.cell_tab.save_dir)
-            if not os.path.exists(self.cell_tab.save_dir):
-                os.makedirs(self.cell_tab.save_dir)
         self.iv_mes.read_keithley_start()
-        self.exp_count += 1
 
-    @QtCore.pyqtSlot(int)
-    def trace_finished(self, itrace):
+    @QtCore.pyqtSlot(int, int)
+    def trace_finished(self, trace_count, cycle_count):
         if not self.iv_mes:
             return
         _, sensor_latest = self.sensor_mes.get_sensor_latest()
@@ -236,9 +224,11 @@ class MainWidget(QtWidgets.QWidget):
         data_iv = self.iv_mes.get_keithley_data()
         fit_data_iv = fit_iv(data_iv)
         self.cell_tab.update_readout(fit_data_iv)
-        self.update_plots(itrace, fit_data_iv)
 
-        save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(itrace)), "a+")
+        total_count = cycle_count * self.iv_mes.traces + trace_count
+        self.update_plots(total_count, fit_data_iv)
+
+        save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(total_count)), "a+")
         save_file.write(self.save_string(timestamp,
                                          *sensor_latest,
                                          *defaults['info'],
@@ -247,13 +237,13 @@ class MainWidget(QtWidgets.QWidget):
         data_iv.to_csv(save_file)
         save_file.close()
 
-        if itrace == (self.iv_mes.traces - 1):  # TODO: capture experiment repeats
+        if total_count == (self.iv_mes.traces * self.iv_mes.cycles - 1):
             self.cell_tab.start_button.setChecked(False)
             self.cell_tab.start_button.setText("Start IV")
 
-    def update_plots(self, itrace, fit_data):
+    def update_plots(self, trace_count, fit_data):
         isc, _, voc, _, pmax = fit_data
-        self.ns.append(itrace)
+        self.ns.append(trace_count)
         self.isc.append(isc)
         self.voc.append(voc)
         self.pmax.append(pmax)
@@ -280,22 +270,6 @@ class MainWidget(QtWidgets.QWidget):
             self.iv_mes.close()
         self.cell_tab.start_button.setChecked(False)
         self.cell_tab.start_button.setText("Start IV")
-
-    @QtCore.pyqtSlot()
-    def experiment_loop(self):
-        if self.exp_count < int(self.cell_tab.exps_edit.text()):
-            self.cell_tab.save_dir = self.cell_tab.save_dir[:-(len(str(self.exp_count - 1)) + 1)]
-            self.cell_tab.save_dir += ' %d' % self.exp_count
-            self.cell_tab.folder_edit.setText(self.cell_tab.save_dir)
-            defaults['info'][0] = defaults['info'][0][:-(len(str(self.exp_count - 1)) + 1)]
-            defaults['info'][0] += ' %d' % self.exp_count
-            if not os.path.exists(self.cell_tab.save_dir):
-                os.makedirs(self.cell_tab.save_dir)
-            self.start_button.click()
-            self.logger('<span style=\" color:#ff0000;\" >Next Experiment lined up in %s minutes.</span>' %
-                        str(self.exp_delay_edit.text()))
-        else:
-            self.exp_count = 0
 
     @QtCore.pyqtSlot()
     def clipboard(self):
