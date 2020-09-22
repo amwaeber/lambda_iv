@@ -1,5 +1,6 @@
 import os
 from PyQt5 import QtWidgets, QtGui, QtCore
+import pyvisa as visa
 
 from user_interfaces.widgets.separator import Separator
 from user_interfaces.widgets.switch_button import Switch
@@ -46,28 +47,24 @@ class CellWidget(QtWidgets.QWidget):
         self.vprot_edit.setFixedWidth(60)
         grid_source.addWidget(self.vprot_edit, 1, 5)
 
-        grid_source.addWidget(QtWidgets.QLabel("Averages", self), 2, 0)
-        self.naverage_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][6], self)  # adjust to update with NSteps
-        self.naverage_edit.setFixedWidth(60)
-        grid_source.addWidget(self.naverage_edit, 2, 1)
         grid_source.addWidget(QtWidgets.QLabel("Delay (s)", self), 3, 0)
-        self.delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][7], self)
+        self.delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][6], self)
         self.delay_edit.setFixedWidth(60)
         grid_source.addWidget(self.delay_edit, 3, 1)
         grid_source.addWidget(QtWidgets.QLabel("Traces", self), 2, 2)
-        self.reps_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][8], self)
+        self.reps_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][7], self)
         self.reps_edit.setFixedWidth(60)
         grid_source.addWidget(self.reps_edit, 2, 3)
         grid_source.addWidget(QtWidgets.QLabel("Tr. Delay (s)", self), 3, 2)
-        self.rep_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][9], self)
+        self.rep_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][8], self)
         self.rep_delay_edit.setFixedWidth(60)
         grid_source.addWidget(self.rep_delay_edit, 3, 3)
         grid_source.addWidget(QtWidgets.QLabel("Experiments", self), 2, 4)
-        self.exps_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][10], self)
+        self.exps_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][9], self)
         self.exps_edit.setFixedWidth(60)
         grid_source.addWidget(self.exps_edit, 2, 5)
         grid_source.addWidget(QtWidgets.QLabel("Exp. Delay (min)", self), 3, 4)
-        self.exp_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][11], self)
+        self.exp_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][10], self)
         self.exp_delay_edit.setFixedWidth(60)
         grid_source.addWidget(self.exp_delay_edit, 3, 5)
         vbox_total.addLayout(grid_source)
@@ -78,14 +75,14 @@ class CellWidget(QtWidgets.QWidget):
         meas2w_label.setAlignment(QtCore.Qt.AlignRight)
         grid_terminals.addWidget(meas2w_label, 0, 0)
         self.remote_sense_btn = Switch()
-        self.remote_sense_btn.setChecked(defaults['cell'][12] == 'True')
+        self.remote_sense_btn.setChecked(defaults['cell'][11] == 'True')
         grid_terminals.addWidget(self.remote_sense_btn, 0, 1)
         grid_terminals.addWidget(QtWidgets.QLabel("4 Wire Sensing", self), 0, 2)
         front_label = QtWidgets.QLabel("Front Terminals", self)
         front_label.setAlignment(QtCore.Qt.AlignRight)
         grid_terminals.addWidget(front_label, 1, 0)
         self.rear_terminal_btn = Switch()
-        self.rear_terminal_btn.setChecked(defaults['cell'][13] == 'True')
+        self.rear_terminal_btn.setChecked(defaults['cell'][12] == 'True')
         grid_terminals.addWidget(self.rear_terminal_btn, 1, 1)
         grid_terminals.addWidget(QtWidgets.QLabel("Rear Terminals", self), 1, 2)
         hbox_terminals.addLayout(grid_terminals)
@@ -95,12 +92,8 @@ class CellWidget(QtWidgets.QWidget):
         hbox_port = QtWidgets.QHBoxLayout()
         hbox_port.addWidget(QtWidgets.QLabel("GPIB Port", self))
         self.source_cb = QtWidgets.QComboBox()
-        self.source_cb.setFixedWidth(90)
-        self.source_cb.addItem('dummy')
-        self.source_cb.addItem('GPIB::24')
-        for i in range(self.source_cb.count()):
-            if self.source_cb.itemText(i) == ports['keithley']:
-                self.source_cb.setCurrentIndex(i)
+        self.source_cb.setFixedWidth(160)
+        self.get_gpib_ports()
         self.source_cb.currentTextChanged.connect(self.source_port_changed)
         hbox_port.addWidget(self.source_cb)
         hbox_port.addStretch(-1)
@@ -127,16 +120,21 @@ class CellWidget(QtWidgets.QWidget):
         vbox_total.addWidget(Separator())
         vbox_total.addWidget(QtWidgets.QLabel("Readout", self))
         hbox_readout = QtWidgets.QHBoxLayout()
-        hbox_readout.addWidget(QtWidgets.QLabel("Voltage (mV)", self))
-        self.read_volt_edit = QtWidgets.QLineEdit('-1', self)
-        self.read_volt_edit.setFixedWidth(60)
-        self.read_volt_edit.setDisabled(True)
-        hbox_readout.addWidget(self.read_volt_edit)
-        hbox_readout.addWidget(QtWidgets.QLabel("Current (mA)", self))
-        self.read_curr_edit = QtWidgets.QLineEdit('-1', self)
-        self.read_curr_edit.setFixedWidth(60)
-        self.read_curr_edit.setDisabled(True)
-        hbox_readout.addWidget(self.read_curr_edit)
+        hbox_readout.addWidget(QtWidgets.QLabel("Isc (mA)", self))
+        self.show_isc_edit = QtWidgets.QLineEdit('-1', self)
+        self.show_isc_edit.setFixedWidth(60)
+        self.show_isc_edit.setDisabled(True)
+        hbox_readout.addWidget(self.show_isc_edit)
+        hbox_readout.addWidget(QtWidgets.QLabel("Voc (mV)", self))
+        self.show_voc_edit = QtWidgets.QLineEdit('-1', self)
+        self.show_voc_edit.setFixedWidth(60)
+        self.show_voc_edit.setDisabled(True)
+        hbox_readout.addWidget(self.show_voc_edit)
+        hbox_readout.addWidget(QtWidgets.QLabel("Pmax (mW)", self))
+        self.show_pmax_edit = QtWidgets.QLineEdit('-1', self)
+        self.show_pmax_edit.setFixedWidth(60)
+        self.show_pmax_edit.setDisabled(True)
+        hbox_readout.addWidget(self.show_pmax_edit)
         hbox_readout.addStretch(-1)
         vbox_total.addLayout(hbox_readout)
 
@@ -165,13 +163,29 @@ class CellWidget(QtWidgets.QWidget):
         except (ZeroDivisionError, ValueError):
             pass
 
+    def get_gpib_ports(self):
+        self.source_cb.clear()
+        self.source_cb.addItem('dummy')
+        rm = visa.ResourceManager()
+        for port in rm.list_resources():
+            if port.startswith('GPIB'):
+                self.source_cb.addItem(port)
+            if port == ports['keithley']:
+                self.source_cb.setCurrentText(port)
+        rm.close()
+
     def source_port_changed(self):
         ports['keithley'] = self.source_cb.currentText()
+
+    def update_readout(self, fitted_vals):
+        isc, _, voc, _, pmax = fitted_vals
+        self.show_isc_edit.setText(f"{int(1e3 * isc)}")
+        self.show_voc_edit.setText(f"{int(1e3 * voc)}")
+        self.show_pmax_edit.setText(f"{int(1e3 * pmax)}")
 
     def check_iv_parameters(self):
         try:
             int(self.nstep_edit.text())
-            int(self.naverage_edit.text())
             int(self.reps_edit.text())
             int(self.exps_edit.text())
             float(self.start_edit.text())
@@ -188,14 +202,13 @@ class CellWidget(QtWidgets.QWidget):
         if any([float(self.end_edit.text()) > 0.75,
                 float(self.start_edit.text()) < -0.15,
                 float(self.start_edit.text()) > float(self.end_edit.text()),
-                float(self.delay_edit.text()) < 0.01,
-                float(self.rep_delay_edit.text()) < 0.5,
+                float(self.delay_edit.text()) < 0.0,
+                float(self.rep_delay_edit.text()) < 5.0,
                 float(self.exp_delay_edit.text()) < 0.5,
                 float(self.ilimit_edit.text()) > 0.5,
                 float(self.ilimit_edit.text()) <= 0.,
                 int(self.vprot_edit.text()) > 200,
                 int(self.vprot_edit.text()) < 5,
-                int(self.naverage_edit.text()) < 1,
                 int(self.reps_edit.text()) < 1,
                 int(self.exps_edit.text()) < 1
                 ]):
@@ -207,8 +220,8 @@ class CellWidget(QtWidgets.QWidget):
 
     def save_defaults(self):
         defaults['cell'] = [self.start_edit.text(), self.end_edit.text(), self.step_edit.text(), self.nstep_edit.text(),
-                            self.ilimit_edit.text(), self.vprot_edit.text(), self.naverage_edit.text(),
-                            self.delay_edit.text(), self.reps_edit.text(), self.rep_delay_edit.text(),
-                            self.exps_edit.text(), self.exp_delay_edit.text(), self.remote_sense_btn.isChecked(),
+                            self.ilimit_edit.text(), self.vprot_edit.text(), self.delay_edit.text(),
+                            self.reps_edit.text(), self.rep_delay_edit.text(), self.exps_edit.text(),
+                            self.exp_delay_edit.text(), self.remote_sense_btn.isChecked(),
                             self.rear_terminal_btn.isChecked()]
         write_config()

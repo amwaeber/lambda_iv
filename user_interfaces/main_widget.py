@@ -4,6 +4,7 @@ import os
 import pandas as pd
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
+import time
 
 import hardware.keithley as keithley
 import hardware.sensor as sensor
@@ -12,6 +13,7 @@ from user_interfaces.info_tab import InfoWidget
 from user_interfaces.sensor_tab import SensorWidget
 import utility.colors as colors
 from utility.config import defaults
+from utility.fitting import fit_iv
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -21,7 +23,6 @@ class MainWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
-        self.data_iv = np.zeros((5, 1))
         self.info_data = defaults['info']  # update as references to info_tab
         self.exp_count = 0
 
@@ -135,7 +136,6 @@ class MainWidget(QtWidgets.QWidget):
 
         self.iv_mes = keithley.Keithley(gpib_port='dummy')
         self.iv_register(self.iv_mes)
-        self.iv_mes.update.emit(-1)
 
     def sensor_register(self, mes):
         self.sensor_mes = mes
@@ -234,12 +234,10 @@ class MainWidget(QtWidgets.QWidget):
 
     def iv_register(self, mes):
         self.iv_mes = mes
-        self.iv_mes.update.connect(self.update_iv)
-        self.iv_mes.save_settings.connect(self.save_configuration)
+        self.iv_mes.trace_finished.connect(self.trace_finished)
         self.iv_mes.restart_sensor.connect(self.start_sensor)
-        self.iv_mes.save.connect(self.save)
         self.iv_mes.to_log.connect(self.logger)
-        self.iv_mes.end_of_experiment.connect(self.experiment_loop)
+        self.iv_mes.experiment_finished.connect(self.experiment_loop)
 
     def start(self):
         # Stop measurement if measurement is running
@@ -264,7 +262,6 @@ class MainWidget(QtWidgets.QWidget):
         experiment_delay = 1 if self.exp_count == 0 else float(self.cell_tab.exp_delay_edit.text()) * 60
         self.iv_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
                                         n_data_points=int(self.cell_tab.nstep_edit.text()),
-                                        averages=int(self.cell_tab.naverage_edit.text()),
                                         repetitions=int(self.cell_tab.reps_edit.text()),
                                         repetition_delay=float(self.cell_tab.rep_delay_edit.text()),
                                         delay=float(self.cell_tab.delay_edit.text()),
@@ -290,16 +287,42 @@ class MainWidget(QtWidgets.QWidget):
         self.exp_count += 1
 
     @QtCore.pyqtSlot(int)
-    def update_iv(self, datapoint):
+    def trace_finished(self, itrace):
         if not self.iv_mes:
             return
-        if datapoint != -1:
-            _, sensor_latest = self.sensor_mes.get_sensor_latest()
-            for ai, val in enumerate(sensor_latest):
-                self.data_sensor[ai, datapoint] = val
-            self.cell_tab.read_volt_edit.setText("%0.1f" % (1e3*self.iv_mes.voltages_set[datapoint]))
-            self.cell_tab.read_curr_edit.setText("%0.2f" % (1e3*self.iv_mes.currents[datapoint]))
+        _, sensor_latest = self.sensor_mes.get_sensor_latest()
+        timestamp = time.time()
         self.iv_mes.line_plot(self.iv_data_line)
+        data_iv = self.iv_mes.get_keithley_data()
+        fit_data_iv = fit_iv(data_iv)
+        self.cell_tab.update_readout(fit_data_iv)
+
+        save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(itrace)), "a+")
+        save_file.write(self.save_string(timestamp,
+                                         *sensor_latest,
+                                         *defaults['info'],
+                                         *defaults['cell'],
+                                         *fit_data_iv))
+        data_iv.to_csv(save_file)
+        save_file.close()
+
+        if itrace == (self.iv_mes.traces - 1):  # TODO: capture experiment repeats
+            self.cell_tab.start_button.setChecked(False)
+            self.cell_tab.start_button.setText("Start IV")
+
+    @staticmethod
+    def save_string(*args):
+        pars = ['timestamp', 'irradiance_1', 'irradiance_2', 'sample_temperature', 'irradiance_3',
+                'experiment_name', 'experiment_date', 'film_id', 'pv_cell_id', 'setup_location',
+                'setup_calibrated', 'setup_suns', 'pid_proportional_band', 'pid_integral',
+                'pid_derivative', 'pid_fuzzy_overshoot', 'pid_heat_tcr1', 'pid_cool_tcr2',
+                'pid_setpoint', 'room_temperature', 'room_humidity', 'source_start_voltage',
+                'source_end_voltage', 'source_voltage_step', 'source_n_steps',
+                'source_compliance', 'source_voltage_limit', 'source_trigger_delay',
+                'source_n_traces', 'source_trace_delay', 'source_n_experiments',
+                'source_experiment_delay', 'source_remote_sense', 'source_rear_terminal',
+                'isc', 'disc', 'voc', 'dvoc', 'pmax']
+        return "\n".join([f"# {par}, {arg}" for par, arg in zip(pars, args)]) + "\n"
 
     def stop(self):
         if self.iv_mes:
@@ -332,59 +355,6 @@ class MainWidget(QtWidgets.QWidget):
         else:
             return
         QtWidgets.QApplication.clipboard().setPixmap(pixmap)
-
-    @QtCore.pyqtSlot(int)
-    def save(self, repetition):
-        self.data_iv = self.iv_mes.get_keithley_data()
-        self.data_iv['Temperature (C)'] = self.data_sensor[2]
-        self.data_iv['Irradiance 1 (W/m2)'] = self.data_sensor[0]
-        self.data_iv['Irradiance 2 (W/m2)'] = self.data_sensor[1]
-        self.data_iv['Irradiance 3 (W/m2)'] = self.data_sensor[3]
-        self.data_iv.to_csv(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(repetition)))
-        self.save_info(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.dat' % str(repetition)),
-                       self.cell_tab.save_dir, *defaults['info'])
-        if repetition == (self.iv_mes.repetitions - 1):
-            self.cell_tab.start_button.setChecked(False)
-            self.cell_tab.start_button.setText("Start IV")
-
-    @staticmethod
-    def save_info(file_path='.', *args):
-        info_pars = ['folder', 'experiment_name', 'experiment_date', 'film_id', 'pv_cell_id', 'setup_location',
-                     'setup_calibrated', 'setup_suns', 'pid_proportional_band', 'pid_integral',
-                     'pid_derivative', 'pid_fuzzy_overshoot', 'pid_heat_tcr1', 'pid_cool_tcr2',
-                     'pid_setpoint', 'room_temperature', 'room_humidity']
-        df = pd.DataFrame({par: arg for par, arg in zip(info_pars, args)}, index=[0])
-        df.to_csv(file_path)
-
-    @QtCore.pyqtSlot()
-    def save_configuration(self):
-        now = datetime.datetime.now()
-        save_file = open(os.path.join(self.cell_tab.save_dir, 'Settings.txt'), 'w')
-        save_file.write(now.strftime("%Y-%m-%d %H:%M:%S"))
-        save_file.write("\n\nFilm Parameters\n")
-        save_file.write("Thickness (mm): %s\n" % str(-1))
-        save_file.write("Area (cm2: %s\n" % str(-1))
-        save_file.write("\nIV Parameters\n")
-        save_file.write("Port: %s\n" % str(self.cell_tab.source_cb.currentText()))
-        save_file.write("Start Voltage (V): %s\n" % str(self.cell_tab.start_edit.text()))
-        save_file.write("End Voltage (V): %s\n" % str(self.cell_tab.end_edit.text()))
-        save_file.write("Voltage Step (V): %s\n" % str(self.cell_tab.step_edit.text()))
-        save_file.write("Number of Voltage Steps: %s\n" % str(self.cell_tab.nstep_edit.text()))
-        save_file.write("Current Limit (A): %s\n" % str(self.cell_tab.ilimit_edit.text()))
-        save_file.write("Voltage Protection (V): %s\n" % str(self.cell_tab.vprot_edit.text()))
-        save_file.write("Averages per Datapoint: %s\n" % str(self.cell_tab.naverage_edit.text()))
-        save_file.write("Delay between Datapoints: %s\n" % str(self.cell_tab.delay_edit.text()))
-        save_file.write("Traces: %s\n" % str(self.cell_tab.reps_edit.text()))
-        save_file.write("Delay between Traces: %s\n" % str(self.cell_tab.rep_delay_edit.text()))
-        save_file.write("\nSensor Parameters\n")
-        save_file.write("Port: %s\n" % str(self.sensor_tab.sensor_cb.currentText()))
-        save_file.write("Baud Rate: %s\n" % str(self.sensor_tab.baud_edit.text()))
-        save_file.write("Bytes per Datapoint: %s\n" % str(self.sensor_tab.databytes_edit.text()))
-        save_file.write("Datapoints: %s\n" % str(self.sensor_tab.datapoints_edit.text()))
-        save_file.write("Analogue Inputs: %s\n" % str(self.sensor_tab.ais_edit.text()))
-        save_file.write("Query Period (s): %s\n" % str(self.sensor_tab.query_edit.text()))
-        save_file.write("Timeout (s): %s\n" % str(self.sensor_tab.timeout_edit.text()))
-        save_file.close()
 
     def check_save_path(self):
         if any([not os.path.exists(self.cell_tab.save_dir),
