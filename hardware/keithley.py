@@ -135,7 +135,9 @@ class Keithley(QtCore.QObject):
         if self.gpib_thread is not None:
             self.gpib_thread.join()
         if not str(self.gpib_port) == 'dummy':
-            self.sourcemeter.shutdown()
+            self.sourcemeter.write(":ABOR")
+            self.sourcemeter.write("OUTPUT OFF")
+            self.rm.close()
             self.to_log.emit('<span style=\" color:#000000;\" >Disconnected Keithley...</span>')
 
     def line_plot(self, target_line=None):

@@ -179,9 +179,9 @@ class CellWidget(QtWidgets.QWidget):
 
     def update_readout(self, fitted_vals):
         isc, _, voc, _, pmax = fitted_vals
-        self.show_isc_edit.setText(f"{int(1e3 * isc)}")
-        self.show_voc_edit.setText(f"{int(1e3 * voc)}")
-        self.show_pmax_edit.setText(f"{int(1e3 * pmax)}")
+        self.show_isc_edit.setText(f"{int(isc)}")
+        self.show_voc_edit.setText(f"{int(voc)}")
+        self.show_pmax_edit.setText(f"{int(pmax)}")
 
     def check_iv_parameters(self):
         try:

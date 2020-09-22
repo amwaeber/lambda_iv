@@ -1,7 +1,7 @@
+import collections
 import datetime
 import numpy as np
 import os
-import pandas as pd
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 import time
@@ -26,6 +26,11 @@ class MainWidget(QtWidgets.QWidget):
         self.info_data = defaults['info']  # update as references to info_tab
         self.exp_count = 0
 
+        self.ns = self.reset_par(maxlen=25)
+        self.isc = self.reset_par(maxlen=25)
+        self.voc = self.reset_par(maxlen=25)
+        self.pmax = self.reset_par(maxlen=25)
+
         hbox_total = QtWidgets.QHBoxLayout()
 
         vbox_left = QtWidgets.QVBoxLayout()
@@ -34,7 +39,7 @@ class MainWidget(QtWidgets.QWidget):
         self.iv_graph = pg.PlotWidget()
         self.iv_graph.plotItem.getAxis('left').setPen(colors.black_pen)
         self.iv_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.iv_graph.setTitle('Photocurrent (A)')
+        self.iv_graph.setTitle('Photocurrent (mA)')
         self.iv_graph.setLabel('bottom', 'Voltage (V)')
         self.iv_data_line = self.iv_graph.plot(pen=colors.blue_pen)
         vbox_left.addWidget(self.iv_graph, 2)
@@ -45,7 +50,7 @@ class MainWidget(QtWidgets.QWidget):
         self.isc_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
         self.isc_graph.setTitle('Short-Circuit Current (A)')
         self.isc_graph.setLabel('bottom', 'Scan #')
-        self.isc_data_line = self.isc_graph.plot(pen=colors.blue_pen)
+        self.isc_data_line = self.isc_graph.plot(pen=colors.red_pen)
         vbox_left.addWidget(self.isc_graph, 2)
 
         # Temperature
@@ -54,7 +59,7 @@ class MainWidget(QtWidgets.QWidget):
         self.temp_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
         self.temp_graph.setTitle('Temperature (C)')
         self.temp_graph.setLabel('bottom', 'Time (s)')
-        self.temp_data_line = self.temp_graph.plot(pen=colors.blue_pen)
+        self.temp_data_line = self.temp_graph.plot(pen=colors.lblue_pen)
         vbox_left.addWidget(self.temp_graph, 2)
         hbox_total.addLayout(vbox_left, 3)
 
@@ -64,18 +69,18 @@ class MainWidget(QtWidgets.QWidget):
         self.pmax_graph = pg.PlotWidget()
         self.pmax_graph.plotItem.getAxis('left').setPen(colors.black_pen)
         self.pmax_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.pmax_graph.setTitle('Maximum Power (W)')
+        self.pmax_graph.setTitle('Maximum Power (mW)')
         self.pmax_graph.setLabel('bottom', 'Scan #')
-        self.pmax_data_line = self.pmax_graph.plot(pen=colors.blue_pen)
+        self.pmax_data_line = self.pmax_graph.plot(pen=colors.orange_pen)
         vbox_center.addWidget(self.pmax_graph, 2)
 
         # Voc
         self.voc_graph = pg.PlotWidget()
         self.voc_graph.plotItem.getAxis('left').setPen(colors.black_pen)
         self.voc_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
-        self.voc_graph.setTitle('Open-Circuit Voltage (V)')
+        self.voc_graph.setTitle('Open-Circuit Voltage (mV)')
         self.voc_graph.setLabel('bottom', 'Scan #')
-        self.voc_data_line = self.voc_graph.plot(pen=colors.blue_pen)
+        self.voc_data_line = self.voc_graph.plot(pen=colors.green_pen)
         vbox_center.addWidget(self.voc_graph, 2)
 
         # Irradiance
@@ -84,9 +89,9 @@ class MainWidget(QtWidgets.QWidget):
         self.irrad_graph.plotItem.getAxis('bottom').setPen(colors.black_pen)
         self.irrad_graph.setTitle('Irradiance (W/m2)')
         self.irrad_graph.setLabel('bottom', 'Time (s)')
-        self.power_data_line1 = self.irrad_graph.plot(pen=colors.blue_pen)
-        self.power_data_line2 = self.irrad_graph.plot(pen=colors.red_pen)
-        self.power_data_line3 = self.irrad_graph.plot(pen=colors.green_pen)
+        self.power_data_line1 = self.irrad_graph.plot(pen=colors.violet_pen)
+        self.power_data_line2 = self.irrad_graph.plot(pen=colors.lred_pen)
+        self.power_data_line3 = self.irrad_graph.plot(pen=colors.lgreen_pen)
         vbox_center.addWidget(self.irrad_graph, 2)
         hbox_total.addLayout(vbox_center, 3)
 
@@ -296,6 +301,7 @@ class MainWidget(QtWidgets.QWidget):
         data_iv = self.iv_mes.get_keithley_data()
         fit_data_iv = fit_iv(data_iv)
         self.cell_tab.update_readout(fit_data_iv)
+        self.update_plots(itrace, fit_data_iv)
 
         save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(itrace)), "a+")
         save_file.write(self.save_string(timestamp,
@@ -309,6 +315,16 @@ class MainWidget(QtWidgets.QWidget):
         if itrace == (self.iv_mes.traces - 1):  # TODO: capture experiment repeats
             self.cell_tab.start_button.setChecked(False)
             self.cell_tab.start_button.setText("Start IV")
+
+    def update_plots(self, itrace, fit_data):
+        isc, _, voc, _, pmax = fit_data
+        self.ns.append(itrace)
+        self.isc.append(isc)
+        self.voc.append(voc)
+        self.pmax.append(pmax)
+        self.isc_data_line.setData(self.ns, self.isc)
+        self.voc_data_line.setData(self.ns, self.voc)
+        self.pmax_data_line.setData(self.ns, self.pmax)
 
     @staticmethod
     def save_string(*args):
@@ -368,3 +384,7 @@ class MainWidget(QtWidgets.QWidget):
         timestring = '[' + datetime.datetime.now().strftime('%H:%M:%S') + '] '
         self.log_edit.append(timestring + string)
         self.log_edit.moveCursor(QtGui.QTextCursor.End)
+
+    @staticmethod
+    def reset_par(maxlen=25):
+        return collections.deque(maxlen=maxlen)
