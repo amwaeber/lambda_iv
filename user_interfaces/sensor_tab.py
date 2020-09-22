@@ -29,7 +29,7 @@ class SensorWidget(QtWidgets.QWidget):
         self.datapoints_edit.setFixedWidth(80)
         grid_pars.addWidget(self.datapoints_edit, 0, 3)
         grid_pars.addWidget(QtWidgets.QLabel("Query delay (s)", self), 0, 4)
-        self.query_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][5], self)
+        self.query_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][4], self)
         self.query_edit.setFixedWidth(80)
         grid_pars.addWidget(self.query_edit, 0, 5)
         vbox_total.addLayout(grid_pars)

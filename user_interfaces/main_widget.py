@@ -7,7 +7,7 @@ import pyqtgraph as pg
 import time
 
 import hardware.keithley as keithley
-import hardware.sensor as sensor
+import hardware.arduino as arduino
 from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
 from user_interfaces.plots import PlotsWidget
@@ -137,16 +137,16 @@ class MainWidget(QtWidgets.QWidget):
     @QtCore.pyqtSlot()
     def start_sensor(self):
         if self.sensor_mes:
-            self.sensor_mes.stop()
-        self.sensor_mes = sensor.ArduinoSensor(str(self.sensor_tab.sensor_cb.currentText()), *defaults['arduino'])
+            self.sensor_mes.close()
+        self.sensor_mes = arduino.Arduino(str(self.sensor_tab.sensor_cb.currentText()), *defaults['arduino'])
         self.sensor_register(self.sensor_mes)
-        self.sensor_mes.start()
+        self.sensor_mes.read_serial_start()
 
     @QtCore.pyqtSlot()
     def stop_sensor(self):
         self.sensor_tab.start_button.setChecked(False)
         if self.sensor_mes:
-            self.sensor_mes.stop()
+            self.sensor_mes.close()
             self.sensor_mes = None
 
     def plot_sensors(self):
@@ -244,7 +244,7 @@ class MainWidget(QtWidgets.QWidget):
     def update_plots(self, trace_count, fit_data):
         isc, _, voc, _, pmax = fit_data
         self.ns.append(trace_count)
-        self.isc.append(isc)
+        self.isc.append(isc)  # TODO: update only if fit successful
         self.voc.append(voc)
         self.pmax.append(pmax)
         self.plot_widget.isc_data_line.setData(self.ns, self.isc)

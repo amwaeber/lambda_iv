@@ -40,10 +40,10 @@ class Keithley(QtCore.QObject):
         self.rm = visa.ResourceManager()
 
     def config_keithley(self):
-        self.to_log.emit('<span style=\" color:#000000;\" >Trying to connect to Keithley at ' + str(self.gpib_port) +
-                         '.</span>')
         if str(self.gpib_port) == 'dummy':
             return
+        self.to_log.emit('<span style=\" color:#000000;\" >Trying to connect to Keithley at ' + str(self.gpib_port) +
+                         '.</span>')
         try:
             self.sourcemeter = self.rm.open_resource(str(self.gpib_port))
             self.to_log.emit('<span style=\" color:#32cd32;\" >Connected to Keithley at ' + str(self.gpib_port) +
@@ -92,13 +92,6 @@ class Keithley(QtCore.QObject):
             self.gpib_thread = threading.Thread(target=self.background_thread)
             self.gpib_thread.start()
 
-    def get_keithley_data(self):
-        data = pd.DataFrame({
-            'Time (s)': self.times,
-            'Voltage (V)': self.voltages,
-            'Current (A)': self.currents})
-        return data
-
     def background_thread(self):
         self.config_keithley()
         while self.is_run:
@@ -146,10 +139,16 @@ class Keithley(QtCore.QObject):
             self.rm.close()
             self.to_log.emit('<span style=\" color:#000000;\" >Disconnected Keithley...</span>')
 
+    def get_keithley_data(self):
+        data = pd.DataFrame({
+            'Time (s)': self.times,
+            'Voltage (V)': self.voltages,
+            'Current (A)': self.currents})
+        return data
+
     def line_plot(self, target_line=None):
         if target_line is None:
-            graph = pg.PlotWidget()
-            target_line = graph.plot()
+            target_line = pg.PlotCurveItem()
         if self.gpib_port == 'dummy':
             xval, yval = [], []
         else:
