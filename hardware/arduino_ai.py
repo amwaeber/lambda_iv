@@ -21,17 +21,14 @@ class SerialRead(QtCore.QObject):
         self.n_ai = n_ai
         self.raw_data = bytearray(self.n_ai * self.data_num_bytes)
         self.data_type = None
-        if self.data_num_bytes == 2:
-            self.data_type = 'h'  # 2 byte integer
-        elif self.data_num_bytes == 4:
-            self.data_type = 'f'  # 4 byte float
-        self.data = []
-        self.times = []
+        self.data_type = 'h'  # 2 byte integer
+        self.data = [collections.deque(maxlen=self.n_data_points) for _ in range(self.n_ai)]
+        self.times = [collections.deque(maxlen=self.n_data_points) for _ in range(self.n_ai)]
         self.init_time = time.time()
         self.private_data = None
-        for i in range(self.n_ai):  # give an array for each type of data and store them in a list
-            self.data.append(collections.deque([0] * self.n_data_points, maxlen=self.n_data_points))
-            self.times.append(collections.deque([0.1] * self.n_data_points, maxlen=self.n_data_points))
+        # for i in range(self.n_ai):  # give an array for each type of data and store them in a list
+        #     self.data.append(collections.deque([0] * self.n_data_points, maxlen=self.n_data_points))
+        #     self.times.append(collections.deque([0.1] * self.n_data_points, maxlen=self.n_data_points))
         self.is_run = True
         self.is_receiving = False
         self.thread = None

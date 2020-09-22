@@ -11,7 +11,7 @@ class ArduinoSensor(QtCore.QObject):
     update = QtCore.pyqtSignal()
     to_log = QtCore.pyqtSignal(str)
 
-    def __init__(self, port='COM3', baud=38400, n_data_points=100, data_num_bytes=2, n_ai=4, timeout=30.0,
+    def __init__(self, port='COM3', baud=38400, n_data_points=100, data_num_bytes=2, timeout=30.0, n_ai=4,
                  query_period=0.25):
         super(ArduinoSensor, self).__init__()
         self.port = port
@@ -67,7 +67,7 @@ class ArduinoSensor(QtCore.QObject):
             xval, yval = [], []
         elif channel == 'temp':
             xval, yval, _ = self.ser.get_serial_data(2)
-            yval = yval * 100
+            # yval = yval * 100  # not sure what that's supposed to do...
         elif channel == 'power1':
             xval, yval, _ = self.ser.get_serial_data(0)
         elif channel == 'power2':

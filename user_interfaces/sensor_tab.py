@@ -24,10 +24,14 @@ class SensorWidget(QtWidgets.QWidget):
         self.sensor_time_edit = QtWidgets.QLineEdit('60', self)
         self.sensor_time_edit.setFixedWidth(80)
         grid_pars.addWidget(self.sensor_time_edit, 0, 1)
-        grid_pars.addWidget(QtWidgets.QLabel("# Averages", self), 0, 2)
-        self.sensor_avg_edit = QtWidgets.QLineEdit('1', self)
-        self.sensor_avg_edit.setFixedWidth(80)
-        grid_pars.addWidget(self.sensor_avg_edit, 0, 3)
+        grid_pars.addWidget(QtWidgets.QLabel("# Data points", self), 0, 2)
+        self.datapoints_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][1], self)
+        self.datapoints_edit.setFixedWidth(80)
+        grid_pars.addWidget(self.datapoints_edit, 0, 3)
+        grid_pars.addWidget(QtWidgets.QLabel("Query delay (s)", self), 0, 4)
+        self.query_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][5], self)
+        self.query_edit.setFixedWidth(80)
+        grid_pars.addWidget(self.query_edit, 0, 5)
         vbox_total.addLayout(grid_pars)
 
         hbox_mode = QtWidgets.QHBoxLayout()
@@ -98,41 +102,6 @@ class SensorWidget(QtWidgets.QWidget):
         hbox_measure.addWidget(self.start_button)
         hbox_measure.addStretch(-1)
         vbox_total.addLayout(hbox_measure)
-
-        vbox_total.addWidget(Separator())
-        vbox_total.addWidget(QtWidgets.QLabel("Arduino", self))
-        grid_arduino = QtWidgets.QGridLayout()
-        grid_arduino.addWidget(QtWidgets.QLabel("Baud rate", self), 0, 0)
-        self.baud_edit = QtWidgets.QLineEdit('38400', self)
-        self.baud_edit.setFixedWidth(60)
-        self.baud_edit.setDisabled(True)
-        grid_arduino.addWidget(self.baud_edit, 0, 1)
-        grid_arduino.addWidget(QtWidgets.QLabel("# Data points", self), 0, 2)
-        self.datapoints_edit = QtWidgets.QLineEdit('100', self)
-        self.datapoints_edit.setFixedWidth(60)
-        self.datapoints_edit.setDisabled(True)
-        grid_arduino.addWidget(self.datapoints_edit, 0, 3)
-        grid_arduino.addWidget(QtWidgets.QLabel("Data bytes", self), 0, 4)
-        self.databytes_edit = QtWidgets.QLineEdit('2', self)
-        self.databytes_edit.setFixedWidth(60)
-        self.databytes_edit.setDisabled(True)
-        grid_arduino.addWidget(self.databytes_edit, 0, 5)
-        grid_arduino.addWidget(QtWidgets.QLabel("Timeout (s)", self), 1, 0)
-        self.timeout_edit = QtWidgets.QLineEdit('30', self)
-        self.timeout_edit.setFixedWidth(60)
-        self.timeout_edit.setDisabled(True)
-        grid_arduino.addWidget(self.timeout_edit, 1, 1)
-        grid_arduino.addWidget(QtWidgets.QLabel("Analogue inputs", self), 1, 2)
-        self.ais_edit = QtWidgets.QLineEdit('4', self)
-        self.ais_edit.setFixedWidth(60)
-        self.ais_edit.setDisabled(True)
-        grid_arduino.addWidget(self.ais_edit, 1, 3)
-        grid_arduino.addWidget(QtWidgets.QLabel("Query period (s)", self), 1, 4)
-        self.query_edit = QtWidgets.QLineEdit('0.25', self)
-        self.query_edit.setFixedWidth(60)
-        self.query_edit.setDisabled(True)
-        grid_arduino.addWidget(self.query_edit, 1, 5)
-        vbox_total.addLayout(grid_arduino)
         vbox_total.addStretch(-1)
         self.setLayout(vbox_total)
 
@@ -158,16 +127,25 @@ class SensorWidget(QtWidgets.QWidget):
 
     def check_sensor_parameters(self):
         try:
+            int(self.datapoints_edit.text())
+            float(self.query_edit.text())
             float(self.sensor_time_edit.text())
-            int(self.sensor_avg_edit.text())
         except (ZeroDivisionError, ValueError):
             self.to_log.emit('<span style=\" color:#ff0000;\" >Some parameters are not in the right format. '
                              'Please check before starting measurement.</span>')
             return False
-        if any([float(self.sensor_time_edit.text()) < 1.0,
-                int(self.sensor_avg_edit.text()) < 1
+        if any([int(self.datapoints_edit.text()) <= 0,
+                int(self.datapoints_edit.text()) > 500,
+                float(self.query_edit.text()) < 0.1,
+                float(self.sensor_time_edit.text()) < 1.0,
                 ]):
             self.to_log.emit('<span style=\" color:#ff0000;\" >Some parameters are out of bounds. '
                              'Please check before starting measurement.</span>')
             return False
+        self.save_defaults()
         return True
+
+    def save_defaults(self):
+        defaults['arduino'][1] = self.datapoints_edit.text()
+        defaults['arduino'][5] = self.query_edit.text()
+        write_config()

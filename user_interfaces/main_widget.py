@@ -12,7 +12,6 @@ from user_interfaces.cell_tab import CellWidget
 from user_interfaces.info_tab import InfoWidget
 from user_interfaces.plots import PlotsWidget
 from user_interfaces.sensor_tab import SensorWidget
-import utility.colors as colors
 from utility.config import defaults
 from utility.fitting import fit_iv
 
@@ -27,10 +26,10 @@ class MainWidget(QtWidgets.QWidget):
         self.info_data = defaults['info']  # update as references to info_tab
         self.exp_count = 0
 
-        self.ns = self.reset_par(maxlen=25)
-        self.isc = self.reset_par(maxlen=25)
-        self.voc = self.reset_par(maxlen=25)
-        self.pmax = self.reset_par(maxlen=25)
+        self.ns = collections.deque(maxlen=25)
+        self.isc = collections.deque(maxlen=25)
+        self.voc = collections.deque(maxlen=25)
+        self.pmax = collections.deque(maxlen=25)
 
         hbox_total = QtWidgets.QHBoxLayout()
 
@@ -70,8 +69,6 @@ class MainWidget(QtWidgets.QWidget):
         hbox_total.addLayout(vbox_right, 3)
         self.setLayout(hbox_total)
 
-        self.data_sensor = np.zeros((int(self.sensor_tab.ais_edit.text()),
-                                     int(self.cell_tab.nstep_edit.text())))
         self.sensor_time_data = None
         self.sensor_time_data_averaged = None
         self.sensor_time_max = None
@@ -113,7 +110,7 @@ class MainWidget(QtWidgets.QWidget):
                     self.sensor_tab.start_button.setChecked(False)
                     return
                 self.sensor_time_max = float(self.sensor_tab.sensor_time_edit.text())
-                self.sensor_avg = int(self.sensor_tab.sensor_avg_edit.text())
+                self.sensor_avg = 1  # TODO: remove averaging
             elif (time_val - self.sensor_time_data[0][0]) > self.sensor_time_max:
                 self.sensor_tab.start_button.setChecked(False)
                 return
@@ -142,13 +139,7 @@ class MainWidget(QtWidgets.QWidget):
     def start_sensor(self):
         if self.sensor_mes:
             self.sensor_mes.stop()
-        self.sensor_mes = sensor.ArduinoSensor(port=str(self.sensor_tab.sensor_cb.currentText()),
-                                               baud=int(self.sensor_tab.baud_edit.text()),
-                                               n_data_points=int(self.sensor_tab.datapoints_edit.text()),
-                                               data_num_bytes=int(self.sensor_tab.databytes_edit.text()),
-                                               n_ai=int(self.sensor_tab.ais_edit.text()),
-                                               timeout=float(self.sensor_tab.timeout_edit.text()),
-                                               query_period=float(self.sensor_tab.query_edit.text()))
+        self.sensor_mes = sensor.ArduinoSensor(str(self.sensor_tab.sensor_cb.currentText()), *defaults['arduino'])
         self.sensor_register(self.sensor_mes)
         self.sensor_mes.start()
 
@@ -224,7 +215,6 @@ class MainWidget(QtWidgets.QWidget):
                                         use_rear_terminals=self.cell_tab.rear_terminal_btn.isChecked()
                                         )
         self.iv_register(self.iv_mes)
-        self.data_sensor = np.zeros((int(self.sensor_tab.ais_edit.text()), int(self.cell_tab.nstep_edit.text())))
         self.check_save_path()
         if self.exp_count == 0 and int(self.cell_tab.exps_edit.text()) > 1:  # count file names from ' 0' if multiple
             os.rmdir(self.cell_tab.save_dir)
@@ -314,7 +304,6 @@ class MainWidget(QtWidgets.QWidget):
 
     def check_save_path(self):
         if any([not os.path.exists(self.cell_tab.save_dir),
-                os.path.exists(os.path.join(self.cell_tab.save_dir, 'Settings.txt')),
                 os.path.exists(os.path.join(self.cell_tab.save_dir, 'IV_Curve_0.csv'))]):
             self.cell_tab.folder_dialog()
             self.check_save_path()
@@ -324,7 +313,3 @@ class MainWidget(QtWidgets.QWidget):
         timestring = '[' + datetime.datetime.now().strftime('%H:%M:%S') + '] '
         self.log_edit.append(timestring + string)
         self.log_edit.moveCursor(QtGui.QTextCursor.End)
-
-    @staticmethod
-    def reset_par(maxlen=25):
-        return collections.deque(maxlen=maxlen)
