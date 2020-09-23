@@ -9,14 +9,14 @@ import time
 
 class Keithley(QtCore.QObject):
     trace_finished = QtCore.pyqtSignal(int, int)
-    restart_sensor = QtCore.pyqtSignal()
     to_log = QtCore.pyqtSignal(str)
 
-    def __init__(self, gpib_port='GPIB::24::INSTR', n_data_points=100, traces=1, trace_pause=5.0,
+    def __init__(self, gpib_port='GPIB::24::INSTR', mode='fixed', n_data_points=100, traces=1, trace_pause=5.0,
                  trigger_delay=0.0, cycles=1, cycle_pause=1.0, min_voltage=-0.01, max_voltage=0.7,
                  compliance_current=0.5, voltage_protection=20, remote_sense=False, use_rear_terminals=False):
         super(Keithley, self).__init__()
         self.gpib_port = gpib_port
+        self.mode = mode
         self.n_data_points = n_data_points
         self.traces = traces
         self.trace_pause = trace_pause
@@ -96,7 +96,6 @@ class Keithley(QtCore.QObject):
         self.config_keithley()
         while self.is_run:
             for cycle in range(self.cycles):
-                self.restart_sensor.emit()
                 time.sleep(5.0)  # give time for sensor connection to re-establish itself
                 for trace in range(self.traces):
                     if not self.is_run:

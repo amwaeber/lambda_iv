@@ -21,7 +21,7 @@ class SensorWidget(QtWidgets.QWidget):
         vbox_total.addWidget(QtWidgets.QLabel("Parameters", self))
         grid_pars = QtWidgets.QGridLayout()
         grid_pars.addWidget(QtWidgets.QLabel("Time (s)", self), 0, 0)
-        self.sensor_time_edit = QtWidgets.QLineEdit('60', self)
+        self.sensor_time_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][5], self)
         self.sensor_time_edit.setFixedWidth(80)
         grid_pars.addWidget(self.sensor_time_edit, 0, 1)
         grid_pars.addWidget(QtWidgets.QLabel("# Data points", self), 0, 2)
@@ -95,15 +95,42 @@ class SensorWidget(QtWidgets.QWidget):
         vbox_total.addWidget(Separator())
         vbox_total.addWidget(QtWidgets.QLabel("Measure", self))
         hbox_measure = QtWidgets.QHBoxLayout()
-        self.start_button = QtWidgets.QPushButton("Plot Sensors")
-        self.start_button.setCheckable(True)
-        self.start_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
-        self.start_button.setToolTip('Plot Sensors')
-        hbox_measure.addWidget(self.start_button)
+        self.run_cont_button = QtWidgets.QPushButton("Run \u221e")
+        self.run_cont_button.setCheckable(True)
+        self.run_cont_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
+        self.run_cont_button.setToolTip('Continuous read')
+        hbox_measure.addWidget(self.run_cont_button)
+        self.run_fixed_button = QtWidgets.QPushButton("Run Fixed")
+        self.run_fixed_button.setCheckable(True)
+        self.run_fixed_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
+        self.run_fixed_button.setToolTip('Fix time read')
+        hbox_measure.addWidget(self.run_fixed_button)
         hbox_measure.addStretch(-1)
         vbox_total.addLayout(hbox_measure)
         vbox_total.addStretch(-1)
         self.setLayout(vbox_total)
+
+    def buttons_pressed(self):
+        return sum([self.run_cont_button.isChecked(), self.run_fixed_button.isChecked()])
+
+    def set_button_text(self, mode, active):
+        if mode == 'continuous':
+            if active:
+                self.run_cont_button.setText("Stop")
+            else:
+                self.run_cont_button.setChecked(False)
+                self.run_cont_button.setText("Run \u221e")
+        elif mode == 'fixed':
+            if active:
+                self.run_fixed_button.setText("Stop")
+            else:
+                self.run_fixed_button.setChecked(False)
+                self.run_fixed_button.setText("Run Fixed")
+        elif mode == 'cell_measure':
+            self.run_cont_button.setChecked(False)
+            self.run_cont_button.setText("Run \u221e")
+            self.run_fixed_button.setChecked(False)
+            self.run_fixed_button.setText("Run Fixed")
 
     def sensor_mode_changed(self):
         self.stop_sensor.emit()
@@ -127,17 +154,16 @@ class SensorWidget(QtWidgets.QWidget):
 
     def check_sensor_parameters(self):
         try:
+            float(self.sensor_time_edit.text())
             int(self.datapoints_edit.text())
             float(self.query_edit.text())
-            float(self.sensor_time_edit.text())
         except (ZeroDivisionError, ValueError):
             self.to_log.emit('<span style=\" color:#ff0000;\" >Some parameters are not in the right format. '
                              'Please check before starting measurement.</span>')
             return False
-        if any([int(self.datapoints_edit.text()) <= 0,
-                int(self.datapoints_edit.text()) > 500,
-                float(self.query_edit.text()) < 0.1,
-                float(self.sensor_time_edit.text()) < 1.0,
+        if any([float(self.query_edit.text()) < 0.1,
+                int(self.datapoints_edit.text()) <= 0,
+                int(self.datapoints_edit.text()) > 500
                 ]):
             self.to_log.emit('<span style=\" color:#ff0000;\" >Some parameters are out of bounds. '
                              'Please check before starting measurement.</span>')
@@ -146,6 +172,7 @@ class SensorWidget(QtWidgets.QWidget):
         return True
 
     def save_defaults(self):
-        defaults['arduino'][1] = self.datapoints_edit.text()
-        defaults['arduino'][5] = self.query_edit.text()
+        defaults['arduino'][1] = int(self.datapoints_edit.text())
+        defaults['arduino'][4] = float(self.query_edit.text())
+        defaults['arduino'][5] = float(self.sensor_time_edit.text())
         write_config()

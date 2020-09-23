@@ -141,15 +141,46 @@ class CellWidget(QtWidgets.QWidget):
         vbox_total.addWidget(Separator())
         vbox_total.addWidget(QtWidgets.QLabel("Measure", self))
         hbox_measure = QtWidgets.QHBoxLayout()
-        self.start_button = QtWidgets.QPushButton("Start IV")
-        self.start_button.setCheckable(True)
-        self.start_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
-        self.start_button.setToolTip('Start IV')
-        hbox_measure.addWidget(self.start_button)
+        self.run_cont_button = QtWidgets.QPushButton("Run \u221e")
+        self.run_cont_button.setCheckable(True)
+        self.run_cont_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
+        self.run_cont_button.setToolTip("Run Continuously")
+        hbox_measure.addWidget(self.run_cont_button)
+        self.run_fixed_button = QtWidgets.QPushButton("Run Fixed")
+        self.run_fixed_button.setCheckable(True)
+        self.run_fixed_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
+        self.run_fixed_button.setToolTip('Run fixed set')
+        hbox_measure.addWidget(self.run_fixed_button)
+        self.run_isc_button = QtWidgets.QPushButton("Run Isc")
+        self.run_isc_button.setCheckable(True)
+        self.run_isc_button.setStyleSheet("QPushButton:checked { background-color: #32cd32 }")
+        self.run_isc_button.setToolTip('Record Isc')
+        hbox_measure.addWidget(self.run_isc_button)
         hbox_measure.addStretch(-1)
         vbox_total.addLayout(hbox_measure)
         vbox_total.addStretch(-1)
         self.setLayout(vbox_total)
+
+    def buttons_pressed(self):
+        return sum([self.run_cont_button.isChecked(), self.run_fixed_button.isChecked(),
+                    self.run_isc_button.isChecked()])
+
+    def set_button_text(self, mode, active):
+        if mode == 'continuous':
+            self.run_cont_button.setText("Stop" if active else "Run \u221e")
+        elif mode == 'fixed':
+            self.run_fixed_button.setText("Stop" if active else "Run Fixed")
+        elif mode == 'isc':
+            self.run_isc_button.setText("Stop" if active else "Run Isc")
+
+    def stop_button(self, mode):
+        if mode == 'continuous':
+            self.run_cont_button.click()
+        elif mode == 'fixed':
+            self.run_fixed_button.click()
+        elif mode == 'isc':
+            self.run_isc_button.click()
+        self.set_button_text(mode, False)
 
     def folder_dialog(self):
         self.save_dir = str(QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Directory', self.save_dir))

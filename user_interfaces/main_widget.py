@@ -1,6 +1,5 @@
 import collections
 import datetime
-import numpy as np
 import os
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
@@ -29,6 +28,7 @@ class MainWidget(QtWidgets.QWidget):
         self.isc = collections.deque(maxlen=25)
         self.voc = collections.deque(maxlen=25)
         self.pmax = collections.deque(maxlen=25)
+        self.ais = [collections.deque(maxlen=25) for _ in range(defaults['arduino'][3])]
 
         hbox_total = QtWidgets.QHBoxLayout()
 
@@ -43,14 +43,17 @@ class MainWidget(QtWidgets.QWidget):
 
         self.cell_tab = CellWidget(self)
         self.cell_tab.clipboard_button.clicked.connect(self.clipboard)
-        self.cell_tab.start_button.clicked.connect(self.start)
+        self.cell_tab.run_cont_button.clicked.connect(lambda: self.start('continuous'))
+        self.cell_tab.run_fixed_button.clicked.connect(lambda: self.start('fixed'))
+        self.cell_tab.run_isc_button.clicked.connect(lambda: self.start('isc'))
         self.cell_tab.to_log.connect(self.logger)
         self.tabs.addTab(self.cell_tab, 'PV Cell')
 
         self.sensor_tab = SensorWidget(self)
         self.sensor_tab.start_sensor.connect(self.start_sensor)
         self.sensor_tab.stop_sensor.connect(self.stop_sensor)
-        self.sensor_tab.start_button.clicked.connect(self.plot_sensors)
+        self.sensor_tab.run_cont_button.clicked.connect(lambda: self.start_sensor('continuous'))
+        self.sensor_tab.run_fixed_button.clicked.connect(lambda: self.start_sensor('fixed'))
         self.sensor_tab.to_log.connect(self.logger)
         self.tabs.addTab(self.sensor_tab, 'Sensors')
 
@@ -68,16 +71,8 @@ class MainWidget(QtWidgets.QWidget):
         hbox_total.addLayout(vbox_right, 3)
         self.setLayout(hbox_total)
 
-        self.sensor_time_data = None
-        self.sensor_time_data_averaged = None
-        self.sensor_time_max = None
-        self.sensor_avg = None
-
         self.sensor_mes = None
-        self.start_sensor()
-
-        self.iv_mes = keithley.Keithley(gpib_port='dummy')
-        self.iv_register(self.iv_mes)
+        self.iv_mes = None
 
     def sensor_register(self, mes):
         self.sensor_mes = mes
@@ -93,110 +88,73 @@ class MainWidget(QtWidgets.QWidget):
         self.sensor_tab.diode1_edit.setText("%.1f" % d1val)
         self.sensor_tab.diode2_edit.setText("%.1f" % d2val)
         self.sensor_tab.diode3_edit.setText("%.1f" % d3val)
-        if not(self.sensor_tab.sensor_plot_fixed_time.isChecked()) and not self.sensor_mes.port == 'dummy':
-            if self.sensor_tab.start_button.isChecked():
-                self.sensor_mes.line_plot(self.plot_widget.temp_data_line, channel='temp')
-                self.sensor_mes.line_plot(self.plot_widget.power_data_line1, channel='power1')
-                self.sensor_mes.line_plot(self.plot_widget.power_data_line2, channel='power2')
-                self.sensor_mes.line_plot(self.plot_widget.power_data_line3, channel='power3')
-        elif all([self.sensor_tab.sensor_plot_fixed_time.isChecked(),
-                  self.sensor_tab.start_button.isChecked(),
-                  not self.sensor_mes.port == 'dummy']):
-            if self.sensor_time_data is None:
-                self.sensor_time_data = [[time_val], [tval], [d1val], [d2val], [d3val]]
-                self.sensor_time_data_averaged = [[], [], [], [], []]
-                if self.sensor_tab.check_sensor_parameters() is False:
-                    self.sensor_tab.start_button.setChecked(False)
-                    return
-                self.sensor_time_max = float(self.sensor_tab.sensor_time_edit.text())
-                self.sensor_avg = 1  # TODO: remove averaging
-            elif (time_val - self.sensor_time_data[0][0]) > self.sensor_time_max:
-                self.sensor_tab.start_button.setChecked(False)
-                return
-            else:
-                latest_data = [time_val, tval, d1val, d2val, d3val]
-                for i, _ in enumerate(self.sensor_time_data):
-                    self.sensor_time_data[i].append(latest_data[i])
-                if len(self.sensor_time_data[0]) % self.sensor_avg == 0:
-                    for i, _ in enumerate(self.sensor_time_data):
-                        self.sensor_time_data_averaged[i] = \
-                            [sum(values, 0.0) / self.sensor_avg
-                             for values in zip(*[iter(self.sensor_time_data[i])] * self.sensor_avg)]
-                    self.sensor_time_data_averaged[0] = [i - self.sensor_time_data_averaged[0][0]
-                                                         for i in self.sensor_time_data_averaged[0]]
-            if self.sensor_tab.start_button.isChecked():
-                self.plot_widget.temp_data_line.setData(self.sensor_time_data_averaged[0],
-                                                        self.sensor_time_data_averaged[1])
-                self.plot_widget.power_data_line1.setData(self.sensor_time_data_averaged[0],
-                                                          self.sensor_time_data_averaged[2])
-                self.plot_widget.power_data_line2.setData(self.sensor_time_data_averaged[0],
-                                                          self.sensor_time_data_averaged[3])
-                self.plot_widget.power_data_line3.setData(self.sensor_time_data_averaged[0],
-                                                          self.sensor_time_data_averaged[4])
+        if self.sensor_mes.mode != 'cell_measure':
+            self.sensor_mes.line_plot(self.plot_widget.temp_data_line, channel='temp')
+            self.sensor_mes.line_plot(self.plot_widget.power_data_line1, channel='power1')
+            self.sensor_mes.line_plot(self.plot_widget.power_data_line2, channel='power2')
+            self.sensor_mes.line_plot(self.plot_widget.power_data_line3, channel='power3')
 
     @QtCore.pyqtSlot()
-    def start_sensor(self):
-        if self.sensor_mes:
-            self.sensor_mes.close()
-        self.sensor_mes = arduino.Arduino(str(self.sensor_tab.sensor_cb.currentText()), *defaults['arduino'])
+    def start_sensor(self, mode='continuous'):
+        # Block if measurement is running
+        if self.iv_mes and mode != 'cell_measure':
+            self.logger('<span style=\" color:#ff0000;\" > Stop current measurement before restarting sensor.</span>')
+            return
+        self.stop_sensor()
+        # Stop measurement if measurement is running
+        if self.sensor_tab.buttons_pressed() == 0 and mode != 'cell_measure':
+            self.sensor_tab.set_button_text('continuous', False)
+            self.sensor_tab.set_button_text('fixed', False)
+            return
+        # Toggle measurement
+        elif mode == 'cell_measure':
+            self.sensor_tab.set_button_text('continuous', False)
+            self.sensor_tab.set_button_text('fixed', False)
+            self.plot_widget.temp_graph.setLabel('bottom', 'Scan #')
+        elif mode == 'continuous':
+            self.sensor_tab.set_button_text('fixed', False)
+            self.plot_widget.temp_graph.setLabel('bottom', 'Time (s)')
+        elif mode == 'fixed':
+            self.sensor_tab.set_button_text('continuous', False)
+            self.plot_widget.temp_graph.setLabel('bottom', 'Time (s)')
+        # Give warning and run as dummy if parameter error
+        if self.sensor_tab.check_sensor_parameters() is False:
+            self.sensor_tab.set_button_text('continuous', False)
+            self.sensor_tab.set_button_text('fixed', False)
+            self.sensor_mes = arduino.Arduino("dummy", mode, *defaults['arduino'])
+        else:
+            self.sensor_mes = arduino.Arduino(str(self.sensor_tab.sensor_cb.currentText()), mode, *defaults['arduino'])
         self.sensor_register(self.sensor_mes)
         self.sensor_mes.read_serial_start()
 
     @QtCore.pyqtSlot()
     def stop_sensor(self):
-        self.sensor_tab.start_button.setChecked(False)
         if self.sensor_mes:
             self.sensor_mes.close()
             self.sensor_mes = None
 
-    def plot_sensors(self):
-        # reset stored sensor data
-        self.sensor_time_data = None
-        self.sensor_time_data_averaged = None
-        # Do not start fixed time measurement if iv-scan is running
-        if self.sensor_tab.sensor_plot_fixed_time.isChecked() and self.cell_tab.start_button.isChecked():
-            self.logger('<span style=\" color:#ff0000;\" >I-V scan is running. '
-                        'Stop current experiment before starting fixed time sensor scan.</span>')
-            self.sensor_tab.start_button.setChecked(False)
-            return
-        if self.sensor_tab.start_button.isChecked():
-            self.sensor_tab.start_button.setText("Stop Plot")
-        else:
-            self.sensor_tab.start_button.setText("Plot Sensors")
-        self.plot_widget.temp_data_line.setData([], [])
-        self.plot_widget.power_data_line1.setData([], [])
-        self.plot_widget.power_data_line2.setData([], [])
-        self.plot_widget.power_data_line3.setData([], [])
-
-    def update_sens_views(self):
-        self.sensor_p2.setGeometry(self.sensor_p1.vb.sceneBoundingRect())
-        self.sensor_p2.linkedViewChanged(self.sensor_p1.vb, self.sensor_p2.XAxis)
-
     def iv_register(self, mes):
         self.iv_mes = mes
         self.iv_mes.trace_finished.connect(self.trace_finished)
-        self.iv_mes.restart_sensor.connect(self.start_sensor)
         self.iv_mes.to_log.connect(self.logger)
 
-    def start(self):
+    def start(self, mode='fixed'):
         # Stop measurement if measurement is running
-        if not self.cell_tab.start_button.isChecked():
+        if self.cell_tab.buttons_pressed() == 0:  # button unclicked manually or by software
             self.stop()
             return
-        # Do not start measurement if sensor plot with fixed time is active
-        elif self.sensor_tab.start_button.isChecked() \
-                and self.sensor_tab.sensor_plot_fixed_time.isChecked():
-            self.logger('<span style=\" color:#ff0000;\" >Fixed time sensor scan is running. '
-                        'Stop current sensor experiment first.</span>')
-            self.cell_tab.start_button.setChecked(False)
+        # Block attempt to start different measurement
+        elif self.cell_tab.buttons_pressed() > 1:
+            self.logger('<span style=\" color:#ff0000;\" > Stop current measurement before starting new one.</span>')
+            self.cell_tab.stop_button(mode)
             return
         # Do not start measurement if faulty parameters are set
         elif self.cell_tab.check_iv_parameters() is False:
-            self.cell_tab.start_button.setChecked(False)
+            self.cell_tab.stop_button(mode)
             return
-        self.cell_tab.start_button.setText("Stop IV")
         self.info_tab.save_defaults()
         self.iv_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
+                                        mode=mode,
                                         n_data_points=int(self.cell_tab.nstep_edit.text()),
                                         trigger_delay=float(self.cell_tab.trigger_delay_edit.text()),
                                         traces=int(self.cell_tab.traces_edit.text()),
@@ -212,6 +170,8 @@ class MainWidget(QtWidgets.QWidget):
                                         )
         self.iv_register(self.iv_mes)
         self.check_save_path()
+        self.start_sensor('cell_measure')
+        self.cell_tab.set_button_text(mode, True)
         self.iv_mes.read_keithley_start()
 
     @QtCore.pyqtSlot(int, int)
@@ -226,7 +186,7 @@ class MainWidget(QtWidgets.QWidget):
         self.cell_tab.update_readout(fit_data_iv)
 
         total_count = cycle_count * self.iv_mes.traces + trace_count
-        self.update_plots(total_count, fit_data_iv)
+        self.update_plots(total_count, fit_data_iv, *sensor_latest)
 
         save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(total_count)), "a+")
         save_file.write(self.save_string(timestamp,
@@ -238,18 +198,23 @@ class MainWidget(QtWidgets.QWidget):
         save_file.close()
 
         if total_count == (self.iv_mes.traces * self.iv_mes.cycles - 1):
-            self.cell_tab.start_button.setChecked(False)
-            self.cell_tab.start_button.setText("Start IV")
+            self.cell_tab.stop_button(self.iv_mes.mode)
 
-    def update_plots(self, trace_count, fit_data):
+    def update_plots(self, trace_count, fit_data, *args):
         isc, _, voc, _, pmax = fit_data
         self.ns.append(trace_count)
         self.isc.append(isc)  # TODO: update only if fit successful
         self.voc.append(voc)
         self.pmax.append(pmax)
+        for ai, arg in zip(self.ais, args):
+            ai.append(arg)
         self.plot_widget.isc_data_line.setData(self.ns, self.isc)
         self.plot_widget.voc_data_line.setData(self.ns, self.voc)
         self.plot_widget.pmax_data_line.setData(self.ns, self.pmax)
+        self.plot_widget.temp_data_line.setData(self.ns, self.ais[2])
+        self.plot_widget.power_data_line1.setData(self.ns, self.ais[0])
+        self.plot_widget.power_data_line2.setData(self.ns, self.ais[1])
+        self.plot_widget.power_data_line3.setData(self.ns, self.ais[3])
 
     @staticmethod
     def save_string(*args):
@@ -268,8 +233,7 @@ class MainWidget(QtWidgets.QWidget):
     def stop(self):
         if self.iv_mes:
             self.iv_mes.close()
-        self.cell_tab.start_button.setChecked(False)
-        self.cell_tab.start_button.setText("Start IV")
+        self.sensor_tab.run_cont_button.click()  # set sensor to continuous again
 
     @QtCore.pyqtSlot()
     def clipboard(self):

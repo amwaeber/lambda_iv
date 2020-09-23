@@ -3,7 +3,7 @@
 
 Adafruit_ADS1115 ads(0x48);
 unsigned long timer = 0;
-long loopTime = 5000;   // microseconds
+long loopTime = 50000;   // microseconds
  
 void setup() {
   Serial.begin(38400);
@@ -25,18 +25,13 @@ void loop() {
   int16_t val1 = ads.readADC_SingleEnded(1);
   int16_t val2 = ads.readADC_SingleEnded(2);
   int16_t val3 = ads.readADC_SingleEnded(3);
-//  double val0 = (analogRead(0) - 512) / 512.0;
-//  double val1 = (analogRead(1) - 512) / 512.0;
-//  double val2 = (analogRead(2) - 512) / 512.0;
-//  double val3 = (analogRead(3) - 512) / 512.0;
-//  double val4 = (analogRead(4) - 512) / 512.0;
   sendToPC(&val0, &val1, &val2, &val3);
 }
 
 void timeSync(unsigned long deltaT) {
   unsigned long currTime = micros();
   long timeToDelay = deltaT - (currTime - timer);
-  if (timeToDelay > 5000)
+  if (timeToDelay > 50000)
   {
     delay(timeToDelay / 1000);
     delayMicroseconds(timeToDelay % 1000);

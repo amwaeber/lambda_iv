@@ -14,16 +14,20 @@ class Arduino(QtCore.QObject):
     update = QtCore.pyqtSignal()
     to_log = QtCore.pyqtSignal(str)
 
-    def __init__(self, serial_port='COM3', serial_baud=38400, n_data_points=100, data_num_bytes=2, n_ai=4,
-                 query_period=0.25):
+    def __init__(self, serial_port='COM3', mode='continuous', serial_baud=38400, n_data_points=100, data_num_bytes=2,
+                 n_ai=4, query_period=0.25, fixed_time=60.):
         super(Arduino, self).__init__()
 
         self.port = serial_port
+        self.mode = mode
+        self.query_period = query_period
+        self.fixed_time = fixed_time
+        self.n_data_points = int(
+            np.ceil(self.fixed_time / self.query_period)) if self.mode == 'fixed' else n_data_points
+
         self.baud = serial_baud
-        self.n_data_points = n_data_points
         self.data_num_bytes = data_num_bytes
         self.n_ai = n_ai
-        self.query_period = query_period
 
         self.raw_data = bytearray(self.n_ai * self.data_num_bytes)
         self.data_type = 'h'  # 2 byte integer
@@ -63,6 +67,7 @@ class Arduino(QtCore.QObject):
     def background_thread(self):  # retrieve data
         self.config_serial()
         time.sleep(1.0)  # give some buffer time for retrieving data
+        n = 0
         while self.is_run:
             if str(self.port) == 'dummy':
                 self.is_receiving = True
@@ -77,6 +82,9 @@ class Arduino(QtCore.QObject):
                     self.to_log.emit('<span style=\" color:#ff0000;\" >Lost connection to Arduino. Check connection '
                                      'and refresh COM ports.</span>')
             self.update.emit()
+            if self.mode == 'fixed':
+                n += 1
+                self.is_run = False if n >= self.n_data_points else True
             time.sleep(self.query_period)
 
     def close(self):
