@@ -48,8 +48,8 @@ class SensorWidget(QtWidgets.QWidget):
         hbox_mode.addStretch(-1)
         vbox_total.addLayout(hbox_mode)
 
-        hbox_ports = QtWidgets.QHBoxLayout()
-        hbox_ports.addWidget(QtWidgets.QLabel("COM Port", self))
+        hbox_port = QtWidgets.QHBoxLayout()
+        hbox_port.addWidget(QtWidgets.QLabel("COM Port", self))
         self.sensor_cb = QtWidgets.QComboBox()
         self.sensor_cb.setFixedWidth(90)
         self.sensor_cb.addItem('dummy')
@@ -58,14 +58,14 @@ class SensorWidget(QtWidgets.QWidget):
             if port == ports['arduino']:
                 self.sensor_cb.setCurrentText(port)
         self.sensor_cb.currentTextChanged.connect(self.sensor_port_changed)
-        hbox_ports.addWidget(self.sensor_cb)
+        hbox_port.addWidget(self.sensor_cb)
         self.refresh_button = QtWidgets.QPushButton(
             QtGui.QIcon(os.path.join(paths['icons'], 'refresh.png')), '')
-        self.refresh_button.clicked.connect(self.update_ports)
-        self.refresh_button.setToolTip('Update Ports')
-        hbox_ports.addWidget(self.refresh_button)
-        hbox_ports.addStretch(-1)
-        vbox_total.addLayout(hbox_ports)
+        self.refresh_button.clicked.connect(self.update_port)
+        self.refresh_button.setToolTip('Update Port')
+        hbox_port.addWidget(self.refresh_button)
+        hbox_port.addStretch(-1)
+        vbox_total.addLayout(hbox_port)
 
         vbox_total.addWidget(Separator())
         vbox_total.addWidget(QtWidgets.QLabel("Readout", self))
@@ -142,7 +142,7 @@ class SensorWidget(QtWidgets.QWidget):
             self.stop_sensor.emit()
             self.start_sensor.emit()
 
-    def update_ports(self):
+    def update_port(self):
         self.stop_sensor.emit()
         self.block_sensor = True
         self.sensor_cb.clear()

@@ -24,7 +24,7 @@ def fit_isc(df, n_points=3, m0=-1e-2):
                                         slice_df['Voltage (V)'],
                                         slice_df['Current (A)'],
                                         p0=np.array([slice_df['Current (A)'][0], m0]))
-    except OptimizeWarning:
+    except (OptimizeWarning, ValueError, RuntimeError):
         return [-1, -1]
     return [popt[0] * 1e3, np.sqrt(np.diag(pcov))[0] * 1e3]
 
@@ -38,7 +38,7 @@ def fit_voc(df, n_points=5, y00=1, a0=1, b0=1):
                                         slice_df['Current (A)'],
                                         slice_df['Voltage (V)'],
                                         p0=np.array([y00, a0, b0]))
-    except OptimizeWarning:
+    except (OptimizeWarning, ValueError, RuntimeError):
         return [-1, -1]
     return [popt[0] * 1e3, np.sqrt(np.diag(pcov))[0] * 1e3]
 
@@ -62,6 +62,6 @@ def fit_pmax(df, n_points=10, i00=4e-5, vt0=7.5e-2):
                                         slice_df['Current (A)'],
                                         p0=np.array([df['Current (A)'][0], i00, vt0]))
         voltage_pmax = optimize.minimize_scalar(lambda v: - v * shockley(v, *popt)).x
-    except OptimizeWarning:
+    except (OptimizeWarning, ValueError, RuntimeError):
         return -1
-    return voltage_pmax * shockley(voltage_pmax, *popt) *1e3
+    return voltage_pmax * shockley(voltage_pmax, *popt) * 1e3

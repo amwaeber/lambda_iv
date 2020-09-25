@@ -10,6 +10,7 @@ import time
 class Keithley(QtCore.QObject):
     trace_finished = QtCore.pyqtSignal(int, int)
     to_log = QtCore.pyqtSignal(str)
+    finished = QtCore.pyqtSignal()
 
     def __init__(self, gpib_port='GPIB::24::INSTR', mode='fixed', n_data_points=100, traces=1, trace_pause=5.0,
                  trigger_delay=0.0, cycles=1, cycle_pause=1.0, min_voltage=-0.01, max_voltage=0.7,
@@ -127,6 +128,7 @@ class Keithley(QtCore.QObject):
                 else:
                     self.to_log.emit('<span style=\" color:#32cd32;\" >Finished IV scan.</span>')
             self.is_run = False
+            self.finished.emit()
 
     def close(self):
         self.is_run = False

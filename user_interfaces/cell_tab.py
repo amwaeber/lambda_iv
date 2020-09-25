@@ -96,6 +96,11 @@ class CellWidget(QtWidgets.QWidget):
         self.get_gpib_ports()
         self.source_cb.currentTextChanged.connect(self.source_port_changed)
         hbox_port.addWidget(self.source_cb)
+        self.refresh_button = QtWidgets.QPushButton(
+            QtGui.QIcon(os.path.join(paths['icons'], 'refresh.png')), '')
+        self.refresh_button.clicked.connect(self.get_gpib_ports)
+        self.refresh_button.setToolTip('Update Port')
+        hbox_port.addWidget(self.refresh_button)
         hbox_port.addStretch(-1)
         vbox_total.addLayout(hbox_port)
 

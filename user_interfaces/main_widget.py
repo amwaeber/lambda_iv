@@ -111,12 +111,15 @@ class MainWidget(QtWidgets.QWidget):
             self.sensor_tab.set_button_text('continuous', False)
             self.sensor_tab.set_button_text('fixed', False)
             self.plot_widget.temp_graph.setLabel('bottom', 'Scan #')
+            self.plot_widget.irrad_graph.setLabel('bottom', 'Scan #')
         elif mode == 'continuous':
             self.sensor_tab.set_button_text('fixed', False)
             self.plot_widget.temp_graph.setLabel('bottom', 'Time (s)')
+            self.plot_widget.irrad_graph.setLabel('bottom', 'Time (s)')
         elif mode == 'fixed':
             self.sensor_tab.set_button_text('continuous', False)
             self.plot_widget.temp_graph.setLabel('bottom', 'Time (s)')
+            self.plot_widget.irrad_graph.setLabel('bottom', 'Time (s)')
         # Give warning and run as dummy if parameter error
         if self.sensor_tab.check_sensor_parameters() is False:
             self.sensor_tab.set_button_text('continuous', False)
@@ -137,20 +140,21 @@ class MainWidget(QtWidgets.QWidget):
         self.iv_mes = mes
         self.iv_mes.trace_finished.connect(self.trace_finished)
         self.iv_mes.to_log.connect(self.logger)
+        self.iv_mes.finished.connect(self.mes_finished)
 
     def start(self, mode='fixed'):
         # Stop measurement if measurement is running
         if self.cell_tab.buttons_pressed() == 0:  # button unclicked manually or by software
-            self.stop()
+            self.mes_finished()
             return
         # Block attempt to start different measurement
         elif self.cell_tab.buttons_pressed() > 1:
             self.logger('<span style=\" color:#ff0000;\" > Stop current measurement before starting new one.</span>')
-            self.cell_tab.stop_button(mode)
+            self.cell_tab.stop_button(mode)  # TODO: test that works!!!
             return
         # Do not start measurement if faulty parameters are set
         elif self.cell_tab.check_iv_parameters() is False:
-            self.cell_tab.stop_button(mode)
+            self.mes_finished()
             return
         self.info_tab.save_defaults()
         self.iv_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
@@ -197,8 +201,10 @@ class MainWidget(QtWidgets.QWidget):
         data_iv.to_csv(save_file)
         save_file.close()
 
-        if total_count == (self.iv_mes.traces * self.iv_mes.cycles - 1):
-            self.cell_tab.stop_button(self.iv_mes.mode)
+    @QtCore.pyqtSlot()
+    def mes_finished(self):
+        self.cell_tab.stop_button(self.iv_mes.mode)
+        self.stop_sensor()
 
     def update_plots(self, trace_count, fit_data, *args):
         isc, _, voc, _, pmax = fit_data
@@ -233,7 +239,7 @@ class MainWidget(QtWidgets.QWidget):
     def stop(self):
         if self.iv_mes:
             self.iv_mes.close()
-        self.sensor_tab.run_cont_button.click()  # set sensor to continuous again
+            self.iv_mes = None
 
     @QtCore.pyqtSlot()
     def clipboard(self):
