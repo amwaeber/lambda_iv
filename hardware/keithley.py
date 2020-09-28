@@ -12,13 +12,14 @@ class Keithley(QtCore.QObject):
     to_log = QtCore.pyqtSignal(str)
     finished = QtCore.pyqtSignal()
 
-    def __init__(self, gpib_port='GPIB::24::INSTR', mode='fixed', n_data_points=100, traces=1, trace_pause=5.0,
-                 trigger_delay=0.0, cycles=1, cycle_pause=1.0, min_voltage=-0.01, max_voltage=0.7,
+    def __init__(self, gpib_port='GPIB::24::INSTR', mode='fixed', n_data_points=100, averages=5, traces=1,
+                 trace_pause=5.0, trigger_delay=0.0, cycles=1, cycle_pause=1.0, min_voltage=-0.01, max_voltage=0.7,
                  compliance_current=0.5, voltage_protection=20, remote_sense=False, use_rear_terminals=False):
         super(Keithley, self).__init__()
         self.gpib_port = gpib_port
         self.mode = mode
         self.n_data_points = n_data_points
+        self.averages = averages
         self.traces = traces
         self.trace_pause = trace_pause
         self.trigger_delay = trigger_delay
@@ -76,7 +77,12 @@ class Keithley(QtCore.QObject):
         self.sourcemeter.write(":SENSE:FUNC 'CURR'")
         self.sourcemeter.write(":SENSE:CURR:RANGE 0.1")
         self.sourcemeter.write(":SENSE:CURR:NPLC 0.01")
-        self.sourcemeter.write(":SENSE:AVERAGE:STAT OFF")
+        if self.averages > 1:
+            self.sourcemeter.write(":SENSE:AVER:TCON REP")
+            self.sourcemeter.write(f":SENSE:AVER:COUN {self.averages}")
+            self.sourcemeter.write(":SENSE:AVER:STAT ON")
+        else:
+            self.sourcemeter.write(":SENSE:AVER:STAT OFF")
         self.sourcemeter.write(":DISP:ENAB OFF")
         self.sourcemeter.write(":SYSTEM:AZERO:STAT OFF")
         if self.use_rear_terminals:
@@ -99,40 +105,38 @@ class Keithley(QtCore.QObject):
 
     def background_thread(self):
         self.config_keithley()
-        while self.is_run:
-            for cycle in range(self.cycles):
-                time.sleep(5.0)  # give time for sensor connection to re-establish itself
-                for trace in range(self.traces):
-                    if not self.is_run:
-                        self.to_log.emit('<span style=\" color:#ff0000;\" >Scan aborted.</span>')
-                        return
-                    if str(self.gpib_port) == 'dummy':
-                        for dp in range(self.n_data_points):
-                            time.sleep(self.trigger_delay)
-                            self.times[dp] = time.time()
-                    else:
-                        self.sourcemeter.write(":OUTPUT ON")
-                        self.sourcemeter.write(":TRAC:FEED:CONT NEXT")
-                        self.sourcemeter.write(":INIT")
-                        time.sleep(self.n_data_points / 100)
-                        self.sourcemeter.write(":OUTPUT OFF")
-                        data = self.sourcemeter.query_ascii_values("TRAC:DATA?")
-                        self.voltages = data[0::5]
-                        self.currents = [-dp for dp in data[1::5]]
-                        self.times = data[3::5]
-                    self.trace_finished.emit(trace, cycle)
-                    self.to_log.emit('<span style=\" color:#1e90ff;\" >Finished trace %s of cycle %s.</span>'
-                                     % (str(trace + 1), str(cycle + 1)))
-                    if trace < self.traces - 1:
-                        time.sleep(self.trace_pause)
-                if cycle < self.cycles - 1:
-                    self.to_log.emit('<span style=\" color:#ff0000;\" >Next Experiment lined up in %d min.</span>' %
-                                     int(self.cycle_pause / 60.))
-                    time.sleep(self.cycle_pause)
+        for cycle in range(1 if self.mode == 'continuous' else self.cycles):
+            time.sleep(5.0)  # give time for sensor connection to re-establish itself
+            for trace in self.zero_to_infinity() if self.mode == 'continuous' else range(self.traces):
+                if not self.is_run:
+                    self.to_log.emit('<span style=\" color:#ff0000;\" >Scan aborted.</span>')
+                    return
+                if str(self.gpib_port) == 'dummy':
+                    for dp in range(self.n_data_points):
+                        time.sleep(self.trigger_delay)
+                        self.times[dp] = time.time()
                 else:
-                    self.to_log.emit('<span style=\" color:#32cd32;\" >Finished IV scan.</span>')
-            self.is_run = False
-            self.finished.emit()
+                    self.sourcemeter.write(":OUTPUT ON")
+                    self.sourcemeter.write(":TRAC:FEED:CONT NEXT")
+                    self.sourcemeter.write(":INIT")
+                    time.sleep(self.n_data_points / 100 + (self.averages / 5))
+                    self.sourcemeter.write(":OUTPUT OFF")
+                    data = self.sourcemeter.query_ascii_values("TRAC:DATA?")
+                    self.voltages = data[0::5]
+                    self.currents = [-dp for dp in data[1::5]]
+                    self.times = data[3::5]
+                self.trace_finished.emit(trace, cycle)
+                self.to_log.emit('<span style=\" color:#1e90ff;\" >Finished trace %s of cycle %s.</span>'
+                                 % (str(trace + 1), str(cycle + 1)))
+                time.sleep(self.trace_pause)
+            if cycle < self.cycles - 1:
+                self.to_log.emit('<span style=\" color:#ff0000;\" >Next Experiment lined up in %d min.</span>' %
+                                 int(self.cycle_pause / 60.))
+                time.sleep(self.cycle_pause)
+            else:
+                self.to_log.emit('<span style=\" color:#32cd32;\" >Finished IV scan.</span>')
+        self.is_run = False
+        self.finished.emit()
 
     def close(self):
         self.is_run = False
@@ -161,3 +165,10 @@ class Keithley(QtCore.QObject):
         else:
             xval, yval = self.voltages, self.currents
         target_line.setData(xval, yval)
+
+    @staticmethod
+    def zero_to_infinity():
+        i = 0
+        while True:
+            yield i
+            i += 1

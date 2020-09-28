@@ -46,9 +46,9 @@ class MainWidget(QtWidgets.QWidget):
 
         self.cell_tab = CellWidget(self)
         self.cell_tab.clipboard_button.clicked.connect(self.clipboard)
-        self.cell_tab.run_cont_button.clicked.connect(lambda: self.start('continuous'))
-        self.cell_tab.run_fixed_button.clicked.connect(lambda: self.start('fixed'))
-        self.cell_tab.run_isc_button.clicked.connect(lambda: self.start('isc'))
+        self.cell_tab.run_cont_button.clicked.connect(lambda: self.start_keithley('continuous'))
+        self.cell_tab.run_fixed_button.clicked.connect(lambda: self.start_keithley('fixed'))
+        self.cell_tab.run_isc_button.clicked.connect(lambda: self.start_keithley('isc'))
         self.cell_tab.to_log.connect(self.logger)
         self.tabs.addTab(self.cell_tab, 'PV Cell')
 
@@ -75,7 +75,7 @@ class MainWidget(QtWidgets.QWidget):
         self.setLayout(hbox_total)
 
         self.sensor_mes = None
-        self.iv_mes = None
+        self.keithley_mes = None
 
     def sensor_register(self, mes):
         self.sensor_mes = mes
@@ -100,7 +100,7 @@ class MainWidget(QtWidgets.QWidget):
     @QtCore.pyqtSlot()
     def start_sensor(self, mode='continuous'):
         # Block if measurement is running
-        if self.iv_mes and mode != 'cell_measure':
+        if self.keithley_mes and mode != 'cell_measure':
             self.logger('<span style=\" color:#ff0000;\" > Stop current measurement before restarting sensor.</span>')
             return
         self.stop_sensor()
@@ -139,70 +139,66 @@ class MainWidget(QtWidgets.QWidget):
             self.sensor_mes.close()
             self.sensor_mes = None
 
-    def iv_register(self, mes):
-        self.iv_mes = mes
-        self.iv_mes.trace_finished.connect(self.trace_finished)
-        self.iv_mes.to_log.connect(self.logger)
-        self.iv_mes.finished.connect(self.mes_finished)
+    def keithley_register(self, mes):
+        self.keithley_mes = mes
+        self.keithley_mes.trace_finished.connect(self.trace_finished)
+        self.keithley_mes.to_log.connect(self.logger)
+        self.keithley_mes.finished.connect(self.stop_keithley)
 
-    def start(self, mode='fixed'):
-        # Stop measurement if measurement is running
-        if self.cell_tab.buttons_pressed() == 0:  # button unclicked manually or by software
-            if self.iv_mes.mode == 'isc':
-                self.data.save(path=os.path.join(self.cell_tab.save_dir, "Isc_Summary.xlsx"))
-            else:
-                self.data.save(path=os.path.join(self.cell_tab.save_dir, "IV_Summary.xlsx"))
-            self.data.reset()
-            self.stop()
-            self.stop_sensor()
-            return
+    def start_keithley(self, mode='fixed'):
         # Block attempt to start different measurement
-        elif self.cell_tab.buttons_pressed() > 1:
+        if self.cell_tab.button_checked_count() > 1:
             self.logger('<span style=\" color:#ff0000;\" > Stop current measurement before starting new one.</span>')
-            self.cell_tab.stop_button(mode)  # TODO: test that works!!!
+            self.cell_tab.reset_single_button(mode)
+            return
+        # Stop measurement if measurement is running
+        elif self.cell_tab.button_checked_count() == 0:  # button unclicked manually or by software
+            self.stop_keithley()
             return
         # Do not start measurement if faulty parameters are set
         elif self.cell_tab.check_iv_parameters() is False:
-            self.mes_finished()
+            self.stop_keithley()
             return
         self.info_tab.save_defaults()
-        self.iv_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
-                                        mode=mode,
-                                        n_data_points=int(self.cell_tab.nstep_edit.text()),
-                                        trigger_delay=float(self.cell_tab.trigger_delay_edit.text()),
-                                        traces=int(self.cell_tab.traces_edit.text()),
-                                        trace_pause=float(self.cell_tab.trace_pause_edit.text()),
-                                        cycles=int(self.cell_tab.cycles_edit.text()),
-                                        cycle_pause=float(self.cell_tab.cycle_pause_edit.text()) * 60,
-                                        min_voltage=float(self.cell_tab.start_edit.text()),
-                                        max_voltage=float(self.cell_tab.end_edit.text()),
-                                        compliance_current=float(self.cell_tab.ilimit_edit.text()),
-                                        voltage_protection=int(self.cell_tab.vprot_edit.text()),
-                                        remote_sense=self.cell_tab.remote_sense_btn.isChecked(),
-                                        use_rear_terminals=self.cell_tab.rear_terminal_btn.isChecked()
-                                        )
-        self.iv_register(self.iv_mes)
+        self.keithley_mes = keithley.Keithley(gpib_port=str(self.cell_tab.source_cb.currentText()),
+                                              mode=mode,
+                                              n_data_points=int(self.cell_tab.nstep_edit.text()),
+                                              averages=int(self.cell_tab.averages_edit.text()),
+                                              trigger_delay=float(self.cell_tab.trigger_delay_edit.text()),
+                                              traces=int(self.cell_tab.traces_edit.text()),
+                                              trace_pause=float(self.cell_tab.trace_pause_edit.text()),
+                                              cycles=int(self.cell_tab.cycles_edit.text()),
+                                              cycle_pause=float(self.cell_tab.cycle_pause_edit.text()) * 60,
+                                              min_voltage=float(self.cell_tab.start_edit.text()),
+                                              max_voltage=float(self.cell_tab.end_edit.text()),
+                                              compliance_current=float(self.cell_tab.ilimit_edit.text()),
+                                              voltage_protection=int(self.cell_tab.vprot_edit.text()),
+                                              remote_sense=self.cell_tab.remote_sense_btn.isChecked(),
+                                              use_rear_terminals=self.cell_tab.rear_terminal_btn.isChecked()
+                                              )
+        self.keithley_register(self.keithley_mes)
         self.check_save_path()
         self.reset_results()
         self.start_sensor('cell_measure')
-        self.cell_tab.set_button_text(mode, True)
-        self.iv_mes.read_keithley_start()
+        self.cell_tab.set_button_active(mode)
+        self.keithley_mes.read_keithley_start()
 
     @QtCore.pyqtSlot(int, int)
     def trace_finished(self, trace_count, cycle_count):
-        if not self.iv_mes:
+        if not self.keithley_mes:
             return
         _, sensor_latest = self.sensor_mes.get_sensor_latest()
         timestamp = time.time()
-        self.iv_mes.line_plot(self.plot_widget.iv_data_line)
-        data_iv = self.iv_mes.get_keithley_data()
+        self.keithley_mes.line_plot(self.plot_widget.iv_data_line)
+        data_iv = self.keithley_mes.get_keithley_data()
 
-        total_count = cycle_count * self.iv_mes.traces + trace_count
+        total_count = cycle_count * self.keithley_mes.traces + trace_count
 
-        if self.iv_mes.mode == 'isc':
+        if self.keithley_mes.mode == 'isc':
             pars_iv = get_isc(data_iv)
         else:
             pars_iv = fit_iv(data_iv)
+        if self.keithley_mes.mode == 'fixed':
             save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(total_count)), "a+")
             save_file.write(self.save_string(timestamp,
                                              *sensor_latest,
@@ -216,12 +212,32 @@ class MainWidget(QtWidgets.QWidget):
         self.data.add_line(total_count, cycle_count, timestamp, *pars_iv, *sensor_latest, *defaults['info'])
 
     @QtCore.pyqtSlot()
-    def mes_finished(self):
-        self.cell_tab.stop_button(self.iv_mes.mode)
+    def stop_keithley(self):
+        # Save summary data
+        if self.data.df.empty:
+            pass
+        elif self.keithley_mes.mode == 'isc':
+            self.data.save(path=os.path.join(self.cell_tab.save_dir, "Isc_Summary.xlsx"))
+        else:
+            self.data.save(path=os.path.join(self.cell_tab.save_dir, "IV_Summary.xlsx"))
+        self.data.reset()
+
+        # End Keithley connection
+        if self.keithley_mes:
+            self.keithley_mes.close()
+            self.keithley_mes = None
+
+        # Reset buttons in cell tab
+        self.cell_tab.reset_measure_buttons()
+
+        # Stop sensor
         self.stop_sensor()
 
     def reset_results(self):
-        plot_points = int(self.cell_tab.cycles_edit.text()) * int(self.cell_tab.traces_edit.text())
+        if self.keithley_mes.mode == 'continuous':
+            plot_points = 50
+        else:
+            plot_points = int(self.cell_tab.cycles_edit.text()) * int(self.cell_tab.traces_edit.text())
         self.ns = collections.deque(maxlen=plot_points)
         self.isc = collections.deque(maxlen=plot_points)
         self.voc = collections.deque(maxlen=plot_points)
@@ -252,16 +268,11 @@ class MainWidget(QtWidgets.QWidget):
                 'pid_derivative', 'pid_fuzzy_overshoot', 'pid_heat_tcr1', 'pid_cool_tcr2',
                 'pid_setpoint', 'room_temperature', 'room_humidity', 'source_start_voltage',
                 'source_end_voltage', 'source_voltage_step', 'source_n_steps',
-                'source_compliance', 'source_voltage_limit', 'source_trigger_delay',
+                'source_compliance', 'source_voltage_limit', 'source_averages', 'source_trigger_delay',
                 'source_n_traces', 'source_trace_delay', 'source_n_experiments',
                 'source_experiment_delay', 'source_remote_sense', 'source_rear_terminal',
                 'isc', 'disc', 'voc', 'dvoc', 'pmax']
         return "\n".join([f"# {par}, {arg}" for par, arg in zip(pars, args)]) + "\n"
-
-    def stop(self):
-        if self.iv_mes:
-            self.iv_mes.close()
-            self.iv_mes = None
 
     @QtCore.pyqtSlot()
     def clipboard(self):

@@ -47,24 +47,28 @@ class CellWidget(QtWidgets.QWidget):
         self.vprot_edit.setFixedWidth(60)
         grid_source.addWidget(self.vprot_edit, 1, 5)
 
+        grid_source.addWidget(QtWidgets.QLabel("Averages", self), 2, 0)
+        self.averages_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][6], self)
+        self.averages_edit.setFixedWidth(60)
+        grid_source.addWidget(self.averages_edit, 2, 1)
         grid_source.addWidget(QtWidgets.QLabel("Trigger Delay (s)", self), 3, 0)
-        self.trigger_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][6], self)
+        self.trigger_delay_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][7], self)
         self.trigger_delay_edit.setFixedWidth(60)
         grid_source.addWidget(self.trigger_delay_edit, 3, 1)
         grid_source.addWidget(QtWidgets.QLabel("Traces", self), 2, 2)
-        self.traces_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][7], self)
+        self.traces_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][8], self)
         self.traces_edit.setFixedWidth(60)
         grid_source.addWidget(self.traces_edit, 2, 3)
         grid_source.addWidget(QtWidgets.QLabel("Trace Pause (s)", self), 3, 2)
-        self.trace_pause_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][8], self)
+        self.trace_pause_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][9], self)
         self.trace_pause_edit.setFixedWidth(60)
         grid_source.addWidget(self.trace_pause_edit, 3, 3)
         grid_source.addWidget(QtWidgets.QLabel("Cycles", self), 2, 4)
-        self.cycles_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][9], self)
+        self.cycles_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][10], self)
         self.cycles_edit.setFixedWidth(60)
         grid_source.addWidget(self.cycles_edit, 2, 5)
         grid_source.addWidget(QtWidgets.QLabel("Cycle Pause (min)", self), 3, 4)
-        self.cycle_pause_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][10], self)
+        self.cycle_pause_edit = QtWidgets.QLineEdit('%s' % defaults['cell'][11], self)
         self.cycle_pause_edit.setFixedWidth(60)
         grid_source.addWidget(self.cycle_pause_edit, 3, 5)
         vbox_total.addLayout(grid_source)
@@ -75,14 +79,14 @@ class CellWidget(QtWidgets.QWidget):
         meas2w_label.setAlignment(QtCore.Qt.AlignRight)
         grid_terminals.addWidget(meas2w_label, 0, 0)
         self.remote_sense_btn = Switch()
-        self.remote_sense_btn.setChecked(defaults['cell'][11])
+        self.remote_sense_btn.setChecked(defaults['cell'][12])
         grid_terminals.addWidget(self.remote_sense_btn, 0, 1)
         grid_terminals.addWidget(QtWidgets.QLabel("4 Wire Sensing", self), 0, 2)
         front_label = QtWidgets.QLabel("Front Terminals", self)
         front_label.setAlignment(QtCore.Qt.AlignRight)
         grid_terminals.addWidget(front_label, 1, 0)
         self.rear_terminal_btn = Switch()
-        self.rear_terminal_btn.setChecked(defaults['cell'][12])
+        self.rear_terminal_btn.setChecked(defaults['cell'][13])
         grid_terminals.addWidget(self.rear_terminal_btn, 1, 1)
         grid_terminals.addWidget(QtWidgets.QLabel("Rear Terminals", self), 1, 2)
         hbox_terminals.addLayout(grid_terminals)
@@ -166,26 +170,34 @@ class CellWidget(QtWidgets.QWidget):
         vbox_total.addStretch(-1)
         self.setLayout(vbox_total)
 
-    def buttons_pressed(self):
+    def button_checked_count(self):
         return sum([self.run_cont_button.isChecked(), self.run_fixed_button.isChecked(),
                     self.run_isc_button.isChecked()])
 
-    def set_button_text(self, mode, active):
-        if mode == 'continuous':
-            self.run_cont_button.setText("Stop" if active else "Run \u221e")
-        elif mode == 'fixed':
-            self.run_fixed_button.setText("Stop" if active else "Run Fixed")
-        elif mode == 'isc':
-            self.run_isc_button.setText("Stop" if active else "Run Isc")
+    def reset_measure_buttons(self):
+        for button, label in zip([self.run_cont_button, self.run_fixed_button, self.run_isc_button],
+                                 ["Run \u221e", "Run Fixed", "Run Isc"]):
+            button.setChecked(False)
+            button.setText(label)
 
-    def stop_button(self, mode):
+    def reset_single_button(self, mode):
         if mode == 'continuous':
-            self.run_cont_button.click()
+            self.run_cont_button.setChecked(False)
+            self.run_cont_button.setText("Run \u221e")
         elif mode == 'fixed':
-            self.run_fixed_button.click()
+            self.run_fixed_button.setChecked(False)
+            self.run_fixed_button.setText("Run Fixed")
         elif mode == 'isc':
-            self.run_isc_button.click()
-        self.set_button_text(mode, False)
+            self.run_isc_button.setChecked(False)
+            self.run_isc_button.setText("Run Isc")
+
+    def set_button_active(self, mode):
+        if mode == 'continuous':
+            self.run_cont_button.setText("Stop")
+        elif mode == 'fixed':
+            self.run_fixed_button.setText("Stop")
+        elif mode == 'isc':
+            self.run_isc_button.setText("Stop")
 
     def folder_dialog(self):
         self.save_dir = str(QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Directory', self.save_dir))
@@ -222,12 +234,13 @@ class CellWidget(QtWidgets.QWidget):
     def check_iv_parameters(self):
         try:
             int(self.nstep_edit.text())
+            int(self.vprot_edit.text())
+            int(self.averages_edit.text())
             int(self.traces_edit.text())
             int(self.cycles_edit.text())
             float(self.start_edit.text())
             float(self.end_edit.text())
             float(self.ilimit_edit.text())
-            int(self.vprot_edit.text())
             float(self.trigger_delay_edit.text())
             float(self.trace_pause_edit.text())
             float(self.cycle_pause_edit.text())
@@ -239,10 +252,11 @@ class CellWidget(QtWidgets.QWidget):
                 float(self.start_edit.text()) < -0.15,
                 float(self.start_edit.text()) > float(self.end_edit.text()),
                 float(self.trigger_delay_edit.text()) < 0.0,
-                float(self.trace_pause_edit.text()) < 5.0,
+                float(self.trace_pause_edit.text()) < 1.0,
                 float(self.cycle_pause_edit.text()) < 0.5,
                 float(self.ilimit_edit.text()) > 0.5,
                 float(self.ilimit_edit.text()) <= 0.,
+                int(self.averages_edit.text()) < 1,
                 int(self.vprot_edit.text()) > 200,
                 int(self.vprot_edit.text()) < 5,
                 int(self.traces_edit.text()) < 1,
@@ -256,8 +270,8 @@ class CellWidget(QtWidgets.QWidget):
 
     def save_defaults(self):
         defaults['cell'] = [self.start_edit.text(), self.end_edit.text(), self.step_edit.text(), self.nstep_edit.text(),
-                            self.ilimit_edit.text(), self.vprot_edit.text(), self.trigger_delay_edit.text(),
-                            self.traces_edit.text(), self.trace_pause_edit.text(), self.cycles_edit.text(),
-                            self.cycle_pause_edit.text(), self.remote_sense_btn.isChecked(),
+                            self.ilimit_edit.text(), self.vprot_edit.text(), self.averages_edit.text(),
+                            self.trigger_delay_edit.text(), self.traces_edit.text(), self.trace_pause_edit.text(),
+                            self.cycles_edit.text(), self.cycle_pause_edit.text(), self.remote_sense_btn.isChecked(),
                             self.rear_terminal_btn.isChecked()]
         write_config()
