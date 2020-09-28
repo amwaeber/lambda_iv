@@ -26,6 +26,7 @@ class MainWidget(QtWidgets.QWidget):
         super(MainWidget, self).__init__(parent)
         self.info_data = defaults['info']  # update as references to info_tab
         self.data = Data()
+        self.save_path = None
 
         self.ns = collections.deque(maxlen=25)
         self.isc = collections.deque(maxlen=25)
@@ -177,7 +178,7 @@ class MainWidget(QtWidgets.QWidget):
                                               use_rear_terminals=self.cell_tab.rear_terminal_btn.isChecked()
                                               )
         self.keithley_register(self.keithley_mes)
-        self.check_save_path()
+        self.get_save_path()
         self.reset_results()
         self.start_sensor('cell_measure')
         self.cell_tab.set_button_active(mode)
@@ -189,7 +190,8 @@ class MainWidget(QtWidgets.QWidget):
             return
         _, sensor_latest = self.sensor_mes.get_sensor_latest()
         timestamp = time.time()
-        self.keithley_mes.line_plot(self.plot_widget.iv_data_line)
+        if self.keithley_mes.mode != 'isc':
+            self.keithley_mes.line_plot(self.plot_widget.iv_data_line)
         data_iv = self.keithley_mes.get_keithley_data()
 
         total_count = cycle_count * self.keithley_mes.traces + trace_count
@@ -199,7 +201,7 @@ class MainWidget(QtWidgets.QWidget):
         else:
             pars_iv = fit_iv(data_iv)
         if self.keithley_mes.mode == 'fixed':
-            save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(total_count)), "a+")
+            save_file = open(os.path.join(self.save_path, 'IV_Curve_%s.csv' % str(total_count)), "a+")
             save_file.write(self.save_string(timestamp,
                                              *sensor_latest,
                                              *defaults['info'],
@@ -217,9 +219,9 @@ class MainWidget(QtWidgets.QWidget):
         if self.data.df.empty:
             pass
         elif self.keithley_mes.mode == 'isc':
-            self.data.save(path=os.path.join(self.cell_tab.save_dir, "Isc_Summary.xlsx"))
+            self.data.save(path=os.path.join(self.save_path, "Isc_Summary.xlsx"))
         else:
-            self.data.save(path=os.path.join(self.cell_tab.save_dir, "IV_Summary.xlsx"))
+            self.data.save(path=os.path.join(self.save_path, "IV_Summary.xlsx"))
         self.data.reset()
 
         # End Keithley connection
@@ -279,11 +281,26 @@ class MainWidget(QtWidgets.QWidget):
         pixmap = QtWidgets.QWidget.grab(self.plot_widget)
         QtWidgets.QApplication.clipboard().setPixmap(pixmap)
 
-    def check_save_path(self):
-        if any([not os.path.exists(self.cell_tab.save_dir),
-                os.path.exists(os.path.join(self.cell_tab.save_dir, 'IV_Curve_0.csv'))]):
-            self.cell_tab.folder_dialog()
-            self.check_save_path()
+    def get_save_path(self):
+        self.save_path = os.path.join(self.cell_tab.save_dir, self.info_tab.experiment_date_edit.text())
+        if not os.path.exists(self.save_path):
+            os.mkdir(self.save_path)
+        experiment_id = "E" + "".join(self.info_tab.experiment_date_edit.text()[2:].split('-'))
+        if not os.listdir(self.save_path):
+            self.save_path = os.path.join(self.save_path, experiment_id + '-001 ' +
+                                          self.info_tab.experiment_name_edit.text())
+            os.mkdir(self.save_path)
+        else:
+            experiment_count = 1
+            while True:
+                if any([entry.startswith(f"{experiment_id}-{str(experiment_count).zfill(3)}")
+                        for entry in os.listdir(self.save_path)]):
+                    experiment_count += 1
+                else:
+                    self.save_path = os.path.join(self.save_path, experiment_id + f"-{str(experiment_count).zfill(3)} "
+                                                  + self.info_tab.experiment_name_edit.text())
+                    os.mkdir(self.save_path)
+                    break
 
     @QtCore.pyqtSlot(str)
     def logger(self, string):

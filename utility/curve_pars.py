@@ -9,7 +9,7 @@ warnings.simplefilter("error", OptimizeWarning)
 def get_isc(df):
     isc = df['Current (A)'].mean()
     disc = df['Current (A)'].std() if df.size > 1 else 0
-    return [isc, disc, 0, 0, 0]
+    return [isc * 1e3, disc * 1e3, 0, 0, 0]
 
 
 def fit_iv(df):

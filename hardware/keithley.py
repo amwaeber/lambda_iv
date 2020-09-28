@@ -75,7 +75,7 @@ class Keithley(QtCore.QObject):
         self.sourcemeter.write(f":SENSE:CURR:PROT {self.compliance_current}")
         self.sourcemeter.write(":SENSE:FUNC:CONC OFF")
         self.sourcemeter.write(":SENSE:FUNC 'CURR'")
-        self.sourcemeter.write(":SENSE:CURR:RANGE 0.1")
+        self.sourcemeter.write(":SENSE:CURR:RANG:AUTO ON")  # 0.1")
         self.sourcemeter.write(":SENSE:CURR:NPLC 0.01")
         if self.averages > 1:
             self.sourcemeter.write(":SENSE:AVER:TCON REP")
