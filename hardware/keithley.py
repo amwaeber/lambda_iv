@@ -58,8 +58,12 @@ class Keithley(QtCore.QObject):
         self.sourcemeter.write(":SYST:BEEP:STAT OFF")
         self.sourcemeter.write(":SOUR:FUNC:MODE VOLT")
         self.sourcemeter.write("SOUR:SWE:SPAC LIN")
-        self.sourcemeter.write(f"SOUR:VOLT:STAR {self.min_voltage}")
-        self.sourcemeter.write(f"SOUR:VOLT:STOP {self.max_voltage}")
+        if self.mode == 'isc':
+            self.sourcemeter.write(f"SOUR:VOLT:STAR {0.0}")
+            self.sourcemeter.write(f"SOUR:VOLT:STOP {0.0}")
+        else:
+            self.sourcemeter.write(f"SOUR:VOLT:STAR {self.min_voltage}")
+            self.sourcemeter.write(f"SOUR:VOLT:STOP {self.max_voltage}")
         self.sourcemeter.write(f"SOUR:SWE:POIN {self.n_data_points}")
         self.sourcemeter.write(":SOUR:VOLT:MODE SWE")
         self.sourcemeter.write(f"TRIG:COUN {self.n_data_points}")
@@ -152,6 +156,8 @@ class Keithley(QtCore.QObject):
             target_line = pg.PlotCurveItem()
         if self.gpib_port == 'dummy':
             xval, yval = [], []
+        elif self.mode == 'isc':
+            xval, yval = list(range(len(self.currents))), self.currents
         else:
             xval, yval = self.voltages, self.currents
         target_line.setData(xval, yval)

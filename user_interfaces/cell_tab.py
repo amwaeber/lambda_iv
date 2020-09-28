@@ -195,7 +195,7 @@ class CellWidget(QtWidgets.QWidget):
     def update_steps(self):
         try:  # capture empty cells, typos etc during data entry
             steps = (float(self.end_edit.text()) - float(self.start_edit.text())) / float(self.nstep_edit.text())
-            self.step_edit.setText("%.3f" % steps)
+            self.step_edit.setText(f"{steps:.3f}")
         except (ZeroDivisionError, ValueError):
             pass
 
@@ -215,9 +215,9 @@ class CellWidget(QtWidgets.QWidget):
 
     def update_readout(self, fitted_vals):
         isc, _, voc, _, pmax = fitted_vals
-        self.show_isc_edit.setText(f"{int(isc)}")
-        self.show_voc_edit.setText(f"{int(voc)}")
-        self.show_pmax_edit.setText(f"{int(pmax)}")
+        self.show_isc_edit.setText(f"{isc:.1f}")
+        self.show_voc_edit.setText(f"{voc:.1f}")
+        self.show_pmax_edit.setText(f"{pmax:.2f}")
 
     def check_iv_parameters(self):
         try:

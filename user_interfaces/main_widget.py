@@ -1,6 +1,7 @@
 import collections
 import datetime
 import os
+import pandas as pd
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 import time
@@ -12,7 +13,8 @@ from user_interfaces.info_tab import InfoWidget
 from user_interfaces.plots import PlotsWidget
 from user_interfaces.sensor_tab import SensorWidget
 from utility.config import defaults
-from utility.fitting import fit_iv
+from utility.data import Data
+from utility.curve_pars import fit_iv, get_isc
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -23,6 +25,7 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
         self.info_data = defaults['info']  # update as references to info_tab
+        self.data = Data()
 
         self.ns = collections.deque(maxlen=25)
         self.isc = collections.deque(maxlen=25)
@@ -145,7 +148,13 @@ class MainWidget(QtWidgets.QWidget):
     def start(self, mode='fixed'):
         # Stop measurement if measurement is running
         if self.cell_tab.buttons_pressed() == 0:  # button unclicked manually or by software
-            self.mes_finished()
+            if self.iv_mes.mode == 'isc':
+                self.data.save(path=os.path.join(self.cell_tab.save_dir, "Isc_Summary.xlsx"))
+            else:
+                self.data.save(path=os.path.join(self.cell_tab.save_dir, "IV_Summary.xlsx"))
+            self.data.reset()
+            self.stop()
+            self.stop_sensor()
             return
         # Block attempt to start different measurement
         elif self.cell_tab.buttons_pressed() > 1:
@@ -174,6 +183,7 @@ class MainWidget(QtWidgets.QWidget):
                                         )
         self.iv_register(self.iv_mes)
         self.check_save_path()
+        self.reset_results()
         self.start_sensor('cell_measure')
         self.cell_tab.set_button_text(mode, True)
         self.iv_mes.read_keithley_start()
@@ -186,25 +196,37 @@ class MainWidget(QtWidgets.QWidget):
         timestamp = time.time()
         self.iv_mes.line_plot(self.plot_widget.iv_data_line)
         data_iv = self.iv_mes.get_keithley_data()
-        fit_data_iv = fit_iv(data_iv)
-        self.cell_tab.update_readout(fit_data_iv)
 
         total_count = cycle_count * self.iv_mes.traces + trace_count
-        self.update_plots(total_count, fit_data_iv, *sensor_latest)
 
-        save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(total_count)), "a+")
-        save_file.write(self.save_string(timestamp,
-                                         *sensor_latest,
-                                         *defaults['info'],
-                                         *defaults['cell'],
-                                         *fit_data_iv))
-        data_iv.to_csv(save_file)
-        save_file.close()
+        if self.iv_mes.mode == 'isc':
+            pars_iv = get_isc(data_iv)
+        else:
+            pars_iv = fit_iv(data_iv)
+            save_file = open(os.path.join(self.cell_tab.save_dir, 'IV_Curve_%s.csv' % str(total_count)), "a+")
+            save_file.write(self.save_string(timestamp,
+                                             *sensor_latest,
+                                             *defaults['info'],
+                                             *defaults['cell'],
+                                             *pars_iv))
+            data_iv.to_csv(save_file)
+            save_file.close()
+        self.cell_tab.update_readout(pars_iv)
+        self.update_plots(total_count, pars_iv, *sensor_latest)
+        self.data.add_line(total_count, cycle_count, timestamp, *pars_iv, *sensor_latest, *defaults['info'])
 
     @QtCore.pyqtSlot()
     def mes_finished(self):
         self.cell_tab.stop_button(self.iv_mes.mode)
         self.stop_sensor()
+
+    def reset_results(self):
+        plot_points = int(self.cell_tab.cycles_edit.text()) * int(self.cell_tab.traces_edit.text())
+        self.ns = collections.deque(maxlen=plot_points)
+        self.isc = collections.deque(maxlen=plot_points)
+        self.voc = collections.deque(maxlen=plot_points)
+        self.pmax = collections.deque(maxlen=plot_points)
+        self.ais = [collections.deque(maxlen=plot_points) for _ in range(defaults['arduino'][3])]
 
     def update_plots(self, trace_count, fit_data, *args):
         isc, _, voc, _, pmax = fit_data
