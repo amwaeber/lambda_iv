@@ -265,7 +265,7 @@ class MainWidget(QtWidgets.QWidget):
     @staticmethod
     def save_string(*args):
         pars = ['timestamp', 'irradiance_1', 'irradiance_2', 'sample_temperature', 'irradiance_3',
-                'experiment_name', 'experiment_date', 'film_id', 'pv_cell_id', 'setup_location',
+                'experiment_name', 'experiment_date', 'film_id', 'pv_cell_id', 'ref_cell_temperature', 'setup_location',
                 'setup_calibrated', 'setup_suns', 'pid_proportional_band', 'pid_integral',
                 'pid_derivative', 'pid_fuzzy_overshoot', 'pid_heat_tcr1', 'pid_cool_tcr2',
                 'pid_setpoint', 'room_temperature', 'room_humidity', 'source_start_voltage',
