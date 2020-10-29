@@ -130,7 +130,8 @@ class MainWidget(QtWidgets.QWidget):
             self.sensor_tab.set_button_text('fixed', False)
             self.sensor_mes = arduino.Arduino("dummy", mode, *defaults['arduino'])
         else:
-            self.sensor_mes = arduino.Arduino(str(self.sensor_tab.sensor_cb.currentText()), mode, *defaults['arduino'])
+            self.sensor_mes = arduino.Arduino(str(self.sensor_tab.sensor_cb.currentText()), mode,
+                                              *defaults['arduino'])
         self.sensor_register(self.sensor_mes)
         self.sensor_mes.read_serial_start()
 

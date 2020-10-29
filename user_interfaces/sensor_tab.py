@@ -32,21 +32,11 @@ class SensorWidget(QtWidgets.QWidget):
         self.query_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][4], self)
         self.query_edit.setFixedWidth(80)
         grid_pars.addWidget(self.query_edit, 0, 5)
+        grid_pars.addWidget(QtWidgets.QLabel("Supply Voltage (V)", self), 1, 0)
+        self.supply_voltage_edit = QtWidgets.QLineEdit('%s' % defaults['arduino'][6], self)
+        self.supply_voltage_edit.setFixedWidth(80)
+        grid_pars.addWidget(self.supply_voltage_edit, 1, 1)
         vbox_total.addLayout(grid_pars)
-
-        hbox_mode = QtWidgets.QHBoxLayout()
-        grid_mode = QtWidgets.QGridLayout()
-        cont_plot_label = QtWidgets.QLabel("Continuous Plot", self)
-        cont_plot_label.setAlignment(QtCore.Qt.AlignRight)
-        grid_mode.addWidget(cont_plot_label, 0, 0)
-        self.sensor_plot_fixed_time = Switch()
-        self.sensor_plot_fixed_time.setChecked(False)
-        self.sensor_plot_fixed_time.toggled.connect(lambda: self.sensor_mode_changed)
-        grid_mode.addWidget(self.sensor_plot_fixed_time, 0, 1)
-        grid_mode.addWidget(QtWidgets.QLabel("Fixed Time Plot", self), 0, 2)
-        hbox_mode.addLayout(grid_mode)
-        hbox_mode.addStretch(-1)
-        vbox_total.addLayout(hbox_mode)
 
         hbox_port = QtWidgets.QHBoxLayout()
         hbox_port.addWidget(QtWidgets.QLabel("COM Port", self))
@@ -132,10 +122,6 @@ class SensorWidget(QtWidgets.QWidget):
             self.run_fixed_button.setChecked(False)
             self.run_fixed_button.setText("Run Fixed")
 
-    def sensor_mode_changed(self):
-        self.stop_sensor.emit()
-        self.start_sensor.emit()
-
     def sensor_port_changed(self):
         ports['arduino'] = self.sensor_cb.currentText()
         if self.block_sensor is False:  # if combobox update is in progress, sensor_port_changed is not triggered
@@ -155,6 +141,7 @@ class SensorWidget(QtWidgets.QWidget):
     def check_sensor_parameters(self):
         try:
             float(self.sensor_time_edit.text())
+            float(self.supply_voltage_edit.text())
             int(self.datapoints_edit.text())
             float(self.query_edit.text())
         except (ZeroDivisionError, ValueError):
@@ -162,6 +149,8 @@ class SensorWidget(QtWidgets.QWidget):
                              'Please check before starting measurement.</span>')
             return False
         if any([float(self.query_edit.text()) < 0.1,
+                float(self.supply_voltage_edit.text()) < 2.5,
+                float(self.supply_voltage_edit.text()) > 6.,
                 int(self.datapoints_edit.text()) <= 0,
                 int(self.datapoints_edit.text()) > 500
                 ]):
@@ -175,4 +164,5 @@ class SensorWidget(QtWidgets.QWidget):
         defaults['arduino'][1] = int(self.datapoints_edit.text())
         defaults['arduino'][4] = float(self.query_edit.text())
         defaults['arduino'][5] = float(self.sensor_time_edit.text())
+        defaults['arduino'][6] = float(self.supply_voltage_edit.text())
         write_config()

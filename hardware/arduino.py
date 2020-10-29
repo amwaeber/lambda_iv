@@ -15,10 +15,11 @@ class Arduino(QtCore.QObject):
     to_log = QtCore.pyqtSignal(str)
 
     def __init__(self, serial_port='COM3', mode='continuous', serial_baud=38400, n_data_points=100, data_num_bytes=2,
-                 n_ai=4, query_period=0.25, fixed_time=60.):
+                 n_ai=4, query_period=0.25, fixed_time=60., supply_voltage=5.2):
         super(Arduino, self).__init__()
 
         self.port = serial_port
+        self.supply_voltage = supply_voltage
         self.mode = mode
         self.query_period = query_period
         self.fixed_time = fixed_time
@@ -102,7 +103,8 @@ class Arduino(QtCore.QObject):
         value,  = struct.unpack(self.data_type, data)
         if plt_number == 2:
             value = conversions.voltage_to_temperature(conversions.digital_to_voltage(value, bits=15,
-                                                                                      voltage_range=6.144))
+                                                                                      voltage_range=6.144),
+                                                       voltage_range=self.supply_voltage)
         else:
             value = conversions.voltage_to_power(conversions.digital_to_voltage(value, bits=15, voltage_range=6.144))
         self.data[plt_number].append(value)  # we get the latest data point and append it to our array

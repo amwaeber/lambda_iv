@@ -12,7 +12,7 @@ global_confs = {'progname': 'Lambda IV',
 defaults = {'info': ['N/A', datetime.date.today(), 'unknown', 'unknown', 25.0, 'Vinery Way',
                      datetime.date(1970, 1, 1), -1, 8, 209, 38, 0.46, 0.1, 0.1, 25, -1, -1],
             'cell': [-0.01, 0.7, 0.005, 142, 0.5, 20, 5, 0.0, 5, 5.0, 1, 30.0, False, False],
-            'arduino': [38400, 100, 2, 4, 0.25, 60.]}
+            'arduino': [38400, 100, 2, 4, 0.25, 60., 5.2]}
 
 paths = {'icons': os.path.join(PROJECT_PATH, 'icons'),
          'last_save': PROJECT_PATH}
